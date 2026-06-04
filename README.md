@@ -125,6 +125,20 @@ https://github.com/streamlit/streamlit-hello
 
 点击“开始分析”后，按钮会切换为“正在分析中...”，页面会展示 GitHub API 获取、仓库克隆、结构分析、技术栈识别、架构识别、质量评估、安全扫描、Multi-Agent 汇总和 LLM 报告生成的进度。
 
+## 测试与自检
+
+项目包含 `tests/` 目录，覆盖 GitHub URL 解析、API 限流降级和代码质量测试识别逻辑。运行：
+
+```bash
+pytest tests -q
+```
+
+在 Windows 权限较严格的环境中，可以把 pytest 临时目录指定到项目内：
+
+```powershell
+python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
+```
+
 ## 功能模块说明
 
 ### 1. GitHub API 与仓库获取
