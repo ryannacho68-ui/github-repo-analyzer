@@ -237,7 +237,7 @@ def render_dashboard(result: dict) -> None:
                 unsafe_allow_html=True,
             )
         elif github_api.get("error"):
-            st.caption(f"GitHub API 未获取成功：{github_api.get('error')}")
+            st.info(f"GitHub API 暂不可用，已使用本地仓库继续分析：{github_api.get('error')}")
 
         st.markdown("### 技术栈")
         _badge_block(tech_stack.get("frameworks") or ["未识别到框架"])

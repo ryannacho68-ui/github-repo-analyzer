@@ -102,6 +102,15 @@ ollama serve
 
 如果本机已有其他 Qwen 模型，例如 `qwen2.5-coder:7b`，页面会自动读取并允许选择。未安装 Ollama 或模型不可用时，系统仍会自动生成模板报告，静态分析能力不受影响。
 
+GitHub API 未认证访问有较低限额，短时间多次分析可能出现 `rate limit exceeded`。这不会中断仓库克隆和本地静态分析；Dashboard 会显示降级提示。若希望提高 API 限额，可以在本机设置环境变量，重启 Streamlit 后生效：
+
+```powershell
+$env:GITHUB_TOKEN="你的 GitHub Personal Access Token"
+streamlit run app.py
+```
+
+只分析公开仓库时 token 不需要额外权限。不要把 token 写入代码、README、`.env` 或提交到 GitHub。
+
 ## 运行方式
 
 ```bash
@@ -120,7 +129,7 @@ https://github.com/streamlit/streamlit-hello
 
 ### 1. GitHub API 与仓库获取
 
-`src/github_api_client.py` 使用 GitHub API 获取仓库元信息、README 摘要和远程文件树统计。API 失败不会中断本地分析。
+`src/github_api_client.py` 使用 GitHub API 获取仓库元信息、README 摘要和远程文件树统计。API 失败或触发限流不会中断本地分析，系统会降级为 `git clone + 本地静态分析`。如果设置了 `GITHUB_TOKEN` 或 `GH_TOKEN`，请求会自动携带认证头以提高限额。
 
 `src/repo_loader.py` 解析 GitHub URL、校验 owner/repo、执行 `git clone --depth 1`，并将仓库保存到 `data/analyzed_repos/owner_repo/`。如果本地已有缓存，用户可以选择直接分析缓存或重新克隆。
 
