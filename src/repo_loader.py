@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import os
+import stat
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -136,5 +138,22 @@ def _remove_cached_repo(repo_path: Path, base_dir: Path) -> None:
     target = repo_path.resolve()
     if target == base or base not in target.parents:
         raise RepoLoadError("缓存目录校验失败，已取消删除操作。")
-    shutil.rmtree(target)
+    try:
+        shutil.rmtree(target, onerror=_handle_remove_readonly)
+    except PermissionError as exc:
+        raise RepoLoadError(
+            "无法删除本地仓库缓存，可能是 .git 对象文件被 Git、编辑器、杀毒软件或系统索引占用，"
+            "也可能存在只读文件。请关闭正在使用该仓库的程序后重试；如果只是想重新查看分析结果，"
+            "也可以取消“重新克隆”并直接使用缓存。"
+        ) from exc
+    except OSError as exc:
+        raise RepoLoadError(f"删除本地仓库缓存失败：{exc}") from exc
 
+
+def _handle_remove_readonly(func, path: str, exc_info) -> None:
+    """Retry removing read-only files left by git packs on Windows."""
+    try:
+        os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+        func(path)
+    except PermissionError:
+        raise
