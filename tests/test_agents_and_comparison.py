@@ -58,6 +58,22 @@ class FakeArchitectureLLMClient:
         }
 
 
+class FakeMalformedComparisonLLMClient:
+    def generate_json(self, system_prompt, user_prompt, fallback):
+        return {
+            **fallback,
+            "dimension_comparison": ["项目概览 A 更好", "部署方式 B 更好"],
+            "scenario_recommendations": "A 适合学习，B 适合部署",
+            "suggestions": "补充 README 和测试",
+            "_llm_meta": {
+                "llm_used": True,
+                "model": "fake-llm",
+                "status": "ok",
+                "error_message": "",
+            },
+        }
+
+
 def test_dimension_contract_contains_ten_dimensions():
     assert DIMENSIONS == [
         "项目概览",
@@ -94,6 +110,30 @@ def test_comparison_agent_compares_dimension_scores_without_llm():
     assert result["winner_by_dimension"]["部署方式"].startswith("B:")
     assert "learning" in result["scenario_recommendations"]
     assert result["agent_logs"][0]["llm_used"] is False
+
+
+def test_comparison_agent_rejects_malformed_llm_dimension_rows():
+    repo_a = {
+        "repo_info": {"name": "repo-a", "owner": "demo", "web_url": "https://github.com/demo/repo-a"},
+        "project_overview": {"project_type": "Web 应用"},
+        "dimension_scores": {"项目概览": 8, "技术栈识别": 7, "部署方式": 4, "潜在问题": 8},
+        "final_summary": {"overall_score": 7.0, "strengths": ["文档较完整"], "suggestions": ["补充 Dockerfile"]},
+    }
+    repo_b = {
+        "repo_info": {"name": "repo-b", "owner": "demo", "web_url": "https://github.com/demo/repo-b"},
+        "project_overview": {"project_type": "CLI 工具"},
+        "dimension_scores": {"项目概览": 6, "技术栈识别": 8, "部署方式": 7, "潜在问题": 6},
+        "final_summary": {"overall_score": 6.8, "strengths": ["部署更完整"], "suggestions": ["补充 README"]},
+    }
+
+    result = ComparisonAgent(FakeMalformedComparisonLLMClient()).analyze(repo_a, repo_b).to_dict()
+
+    assert result["agent_logs"][0]["llm_used"] is True
+    assert len(result["dimension_comparison"]) == 4
+    assert all(isinstance(row, dict) for row in result["dimension_comparison"])
+    assert result["dimension_comparison"][0]["分析维度"] == "项目概览"
+    assert isinstance(result["scenario_recommendations"], dict)
+    assert isinstance(result["suggestions"]["common"], list)
 
 
 def test_base_agent_normalizes_non_list_outputs():

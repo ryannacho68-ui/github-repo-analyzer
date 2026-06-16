@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any
 
@@ -149,36 +150,172 @@ def _comparison_prompt(repo_a: dict[str, Any], repo_b: dict[str, Any], fallback:
 
 def _normalize_payload(payload: dict[str, Any], fallback: dict[str, Any]) -> dict[str, Any]:
     result = dict(fallback)
+    if payload.get("overall_conclusion"):
+        result["overall_conclusion"] = _to_text(payload.get("overall_conclusion"))
+
+    result["dimension_comparison"] = _normalize_dimension_rows(
+        payload.get("dimension_comparison"),
+        fallback.get("dimension_comparison") or [],
+    )
+    result["winner_by_dimension"] = _normalize_mapping(
+        payload.get("winner_by_dimension"),
+        fallback.get("winner_by_dimension") or {},
+    )
+    if not result["winner_by_dimension"]:
+        result["winner_by_dimension"] = {row["分析维度"]: row["胜出方"] for row in result["dimension_comparison"]}
+
     for key in (
-        "overall_conclusion",
-        "dimension_comparison",
-        "winner_by_dimension",
         "tech_stack_comparison",
         "architecture_comparison",
         "quality_comparison",
         "documentation_test_deploy_comparison",
         "risk_comparison",
-        "scenario_recommendations",
-        "suggestions",
-        "markdown_report",
     ):
-        if payload.get(key):
-            result[key] = payload[key]
+        result[key] = _normalize_mapping(payload.get(key), fallback.get(key) or {})
+
+    result["scenario_recommendations"] = _normalize_mapping(
+        payload.get("scenario_recommendations"),
+        fallback.get("scenario_recommendations") or {},
+    )
+    result["suggestions"] = _normalize_suggestions(payload.get("suggestions"), fallback.get("suggestions") or {})
 
     if payload.get("learning_recommendation"):
-        result.setdefault("scenario_recommendations", {})["learning"] = payload["learning_recommendation"]
+        result.setdefault("scenario_recommendations", {})["learning"] = _to_text(payload["learning_recommendation"])
     if payload.get("redevelopment_recommendation"):
-        result.setdefault("scenario_recommendations", {})["secondary_development"] = payload["redevelopment_recommendation"]
+        result.setdefault("scenario_recommendations", {})["secondary_development"] = _to_text(payload["redevelopment_recommendation"])
     if payload.get("production_recommendation"):
-        result.setdefault("scenario_recommendations", {})["production"] = payload["production_recommendation"]
+        result.setdefault("scenario_recommendations", {})["production"] = _to_text(payload["production_recommendation"])
     if payload.get("repo_a_suggestions"):
-        result.setdefault("suggestions", {})["repo_a"] = payload["repo_a_suggestions"]
+        result.setdefault("suggestions", {})["repo_a"] = _to_text_list(payload["repo_a_suggestions"])
     if payload.get("repo_b_suggestions"):
-        result.setdefault("suggestions", {})["repo_b"] = payload["repo_b_suggestions"]
+        result.setdefault("suggestions", {})["repo_b"] = _to_text_list(payload["repo_b_suggestions"])
     result["_llm_meta"] = payload.get("_llm_meta") or {}
+    if isinstance(payload.get("markdown_report"), str) and payload.get("markdown_report").strip():
+        result["markdown_report"] = payload["markdown_report"]
     if not result.get("markdown_report"):
         result["markdown_report"] = _comparison_markdown(result)
     return result
+
+
+def _normalize_dimension_rows(value: Any, fallback_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    fallback = [_canonical_dimension_row(row) for row in fallback_rows if isinstance(row, dict)]
+    fallback_by_dimension = {row["分析维度"]: row for row in fallback if row.get("分析维度")}
+    if not isinstance(value, list):
+        return fallback
+
+    rows: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        dimension = _first_value(item, "分析维度", "dimension", "Dimension", "name", "维度")
+        if not dimension:
+            continue
+        fallback_row = fallback_by_dimension.get(str(dimension), {})
+        rows.append(_canonical_dimension_row(item, fallback_row))
+
+    if not rows:
+        return fallback
+
+    seen = {row["分析维度"] for row in rows}
+    rows.extend(row for row in fallback if row.get("分析维度") not in seen)
+    return rows
+
+
+def _canonical_dimension_row(row: dict[str, Any], fallback: dict[str, Any] | None = None) -> dict[str, Any]:
+    fallback = fallback or {}
+    dimension = _first_value(row, "分析维度", "dimension", "Dimension", "name", "维度") or fallback.get("分析维度") or "未知维度"
+    score_a = _score_value(
+        _first_value(row, "仓库 A 得分", "repo_a_score", "score_a", "A", "a", "repoA"),
+        fallback.get("仓库 A 得分", 0),
+    )
+    score_b = _score_value(
+        _first_value(row, "仓库 B 得分", "repo_b_score", "score_b", "B", "b", "repoB"),
+        fallback.get("仓库 B 得分", 0),
+    )
+    winner = _first_value(row, "胜出方", "winner", "Winner", "better_repo") or fallback.get("胜出方") or "接近"
+    reason = _first_value(row, "简要原因", "reason", "Reason", "summary", "原因") or fallback.get("简要原因") or "暂无原因。"
+    return {
+        "分析维度": _to_text(dimension),
+        "仓库 A 得分": score_a,
+        "仓库 B 得分": score_b,
+        "胜出方": _to_text(winner),
+        "简要原因": _to_text(reason),
+    }
+
+
+def _first_value(mapping: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in mapping and mapping[key] not in (None, ""):
+            return mapping[key]
+    return None
+
+
+def _normalize_mapping(value: Any, fallback: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return dict(fallback)
+    normalized = dict(fallback)
+    for key, item in value.items():
+        normalized[str(key)] = _json_ready_text(item)
+    return normalized
+
+
+def _normalize_suggestions(value: Any, fallback: dict[str, Any]) -> dict[str, list[str]]:
+    base = {str(key): _to_text_list(item) for key, item in fallback.items()}
+    if isinstance(value, dict):
+        for key, item in value.items():
+            base[str(key)] = _to_text_list(item)
+    elif value:
+        base.setdefault("common", []).extend(_to_text_list(value))
+    return base
+
+
+def _score_value(value: Any, fallback: float) -> float:
+    if value is None:
+        return round(float(fallback or 0), 1)
+    if isinstance(value, str):
+        match = re.search(r"-?\d+(?:\.\d+)?", value)
+        if not match:
+            return round(float(fallback or 0), 1)
+        value = match.group(0)
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = float(fallback or 0)
+    if number > 10:
+        number = number / 10
+    return round(max(0.0, min(10.0, number)), 1)
+
+
+def _json_ready_text(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _json_ready_text(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_ready_text(item) for item in value]
+    if isinstance(value, str):
+        return value
+    return value
+
+
+def _to_text_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [_to_text(item) for item in value if _to_text(item)]
+    if isinstance(value, dict):
+        return [f"{key}: {_to_text(item)}" for key, item in value.items()]
+    text = _to_text(value)
+    return [text] if text else []
+
+
+def _to_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except TypeError:
+        return str(value).strip()
 
 
 def _repo_brief(repo: dict[str, Any]) -> dict[str, Any]:

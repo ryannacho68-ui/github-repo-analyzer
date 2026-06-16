@@ -584,14 +584,17 @@ def render_comparison_dashboard(result: dict) -> None:
     k1, k2, k3 = st.columns(3)
     k1.metric("仓库 A 总分", repo_a.get("overall_score", 0))
     k2.metric("仓库 B 总分", repo_b.get("overall_score", 0))
-    k3.metric("对比维度", len(comparison.get("dimension_comparison") or []))
+    rows = _safe_comparison_rows(comparison.get("dimension_comparison") or [])
+    k3.metric("对比维度", len(rows))
 
     left, right = st.columns([1.35, 1.0], gap="large")
     with left:
         st.markdown("### 维度评分对比")
-        rows = comparison.get("dimension_comparison") or []
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        st.plotly_chart(_comparison_radar_figure(rows), use_container_width=True)
+        if rows:
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            st.plotly_chart(_comparison_radar_figure(rows), use_container_width=True)
+        else:
+            st.info("未生成有效的维度对比数据，请重新开始对比分析。")
 
     with right:
         st.markdown("### 适用场景建议")
@@ -797,6 +800,7 @@ def _score_radar_figure(result: dict) -> go.Figure:
 
 
 def _comparison_radar_figure(rows: list[dict]) -> go.Figure:
+    rows = _safe_comparison_rows(rows)
     if not rows:
         return go.Figure()
     dimensions = [row.get("分析维度") for row in rows]
@@ -836,6 +840,38 @@ def _comparison_radar_figure(rows: list[dict]) -> go.Figure:
         ),
     )
     return fig
+
+
+def _safe_comparison_rows(rows: object) -> list[dict]:
+    if not isinstance(rows, list):
+        return []
+    normalized = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        dimension = row.get("分析维度") or row.get("dimension") or row.get("name")
+        if not dimension:
+            continue
+        normalized.append(
+            {
+                "分析维度": str(dimension),
+                "仓库 A 得分": _safe_score(row.get("仓库 A 得分") or row.get("repo_a_score") or row.get("score_a")),
+                "仓库 B 得分": _safe_score(row.get("仓库 B 得分") or row.get("repo_b_score") or row.get("score_b")),
+                "胜出方": row.get("胜出方") or row.get("winner") or "接近",
+                "简要原因": row.get("简要原因") or row.get("reason") or "暂无原因。",
+            }
+        )
+    return normalized
+
+
+def _safe_score(value: object) -> float:
+    try:
+        number = float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if number > 10:
+        number = number / 10
+    return round(max(0.0, min(10.0, number)), 1)
 
 
 def _badge_block(items: list[str]) -> None:
