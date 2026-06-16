@@ -152,17 +152,17 @@ def run_pipeline(repo_url: str, refresh: bool, use_llm: bool, model: str) -> dic
     )
     analysis["analysis_options"] = {"use_llm": use_llm, "model": model}
 
-    status.info("???? 10 ?????????")
+    status.info("生成覆盖 10 个维度的结构化报告")
     structured_report = generate_repository_markdown(analysis)
     summary_markdown = (analysis.get("final_summary") or {}).get("markdown_report") or analysis.get("markdown_report")
     if summary_markdown and summary_markdown != structured_report:
         analysis["report"] = f"{summary_markdown}\n\n---\n\n{structured_report}"
         report_mode = "summary-agent-llm" if use_llm else "summary-agent-template"
-        report_message = "?? Summary Agent ???????????? 10 ????????"
+        report_message = "已由 Summary Agent 生成自然语言报告，并附加 10 维度结构化报告。"
     else:
         analysis["report"] = structured_report
         report_mode = "template"
-        report_message = "??? 10 ??????????"
+        report_message = "已生成 10 维度结构化模板报告。"
     analysis["report_meta"] = {
         "mode": report_mode,
         "model": model if use_llm else None,
@@ -172,7 +172,7 @@ def run_pipeline(repo_url: str, refresh: bool, use_llm: bool, model: str) -> dic
     log_name = f"{repo.get('owner', 'repo')}_{repo.get('name', 'analysis')}"
     analysis["agent_log_path"] = save_agent_logs(log_name, analysis.get("agent_logs") or [], OUTPUTS_DIR)
     progress.progress(100)
-    status.success("????")
+    status.success("分析完成")
     return analysis
 
 def render_dashboard(result: dict) -> None:
@@ -469,12 +469,12 @@ def render_compare_workspace() -> None:
                 key="compare_repo_b",
             )
         with refresh_col:
-            refresh = st.toggle("????", value=False, key="compare_refresh")
+            refresh = st.toggle("重新克隆", value=False, key="compare_refresh")
         with llm_col:
             use_llm = st.toggle("Ollama", value=True, key="compare_llm")
         with button_col:
             compare_clicked = st.form_submit_button(
-                "?????..." if is_comparing else "????",
+                "正在对比中..." if is_comparing else "开始对比",
                 type="primary",
                 use_container_width=True,
                 disabled=is_comparing,
@@ -482,7 +482,7 @@ def render_compare_workspace() -> None:
 
     if compare_clicked:
         if not repo_a.strip() or not repo_b.strip():
-            st.warning("????? GitHub ?? URL?")
+            st.warning("请输入两个 GitHub 仓库 URL。")
         else:
             st.session_state.pop("comparison_error", None)
             st.session_state["comparison_pending_job"] = {
@@ -498,7 +498,7 @@ def render_compare_workspace() -> None:
     if st.session_state.get("comparison_running"):
         job = st.session_state.get("comparison_pending_job") or {}
         try:
-            with st.spinner("???????..."):
+            with st.spinner("正在对比分析中..."):
                 st.session_state["comparison_result"] = run_compare_pipeline(
                     job.get("repo_a", ""),
                     job.get("repo_b", ""),
@@ -510,7 +510,7 @@ def render_compare_workspace() -> None:
         except RepoLoadError as exc:
             st.session_state["comparison_error"] = str(exc)
         except Exception as exc:
-            st.session_state["comparison_error"] = f"??????????{exc}"
+            st.session_state["comparison_error"] = f"对比过程中出现异常：{exc}"
         finally:
             st.session_state["comparison_running"] = False
             st.session_state.pop("comparison_pending_job", None)
@@ -526,8 +526,8 @@ def render_compare_workspace() -> None:
         st.markdown(
             """
             <div class="empty-panel">
-              <div class="empty-title">?????? GitHub ?? URL ?????</div>
-              <div class="muted">?????????? Multi-Agent ????? Comparison Agent ?? 10 ????????</div>
+              <div class="empty-title">输入两个公开 GitHub 仓库 URL 后开始对比</div>
+              <div class="muted">系统会分别运行单仓库 Multi-Agent 分析，再由 Comparison Agent 进行 10 个维度横向对比。</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -557,12 +557,12 @@ def run_compare_pipeline(repo_a: str, repo_b: str, refresh: bool, use_llm: bool,
     result["report_meta"] = {
         "mode": "comparison-agent-llm" if use_llm else "comparison-template",
         "model": model if use_llm else None,
-        "message": "?????? 10 ???????",
+        "message": "已生成双仓库 10 维度对比报告。",
     }
     name = f"compare_{(comparison.get('repo_a') or {}).get('name', 'repo_a')}_{(comparison.get('repo_b') or {}).get('name', 'repo_b')}"
     result["agent_log_path"] = save_agent_logs(name, result.get("agent_logs") or [], OUTPUTS_DIR)
     progress.progress(100)
-    status.success("????")
+    status.success("对比完成")
     return result
 
 def render_comparison_dashboard(result: dict) -> None:
