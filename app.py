@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -7,24 +8,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.agent_orchestrator import run_agent_workflow
-from src.architecture_analyzer import analyze_architecture
-from src.code_quality_analyzer import analyze_code_quality
-from src.doc_checker import check_documentation
-from src.file_tree import analyze_file_tree
 from src.github_api_client import fetch_github_api_snapshot
 from src.llm_reporter import DEFAULT_MODEL, generate_report, list_available_models
-from src.project_overview_analyzer import analyze_project_overview
+from src.orchestrator import analyze_repository, compare_repositories
 from src.rag_qa import answer_repository_question
 from src.repo_loader import RepoLoadError, clone_or_use_cache
-from src.report_exporter import save_markdown_report
-from src.security_checker import check_security
-from src.tech_stack_detector import detect_tech_stack
+from src.report_generator import generate_comparison_markdown, generate_repository_markdown, save_agent_logs, save_report_files
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 ANALYZED_REPOS_DIR = PROJECT_ROOT / "data" / "analyzed_repos"
 REPORTS_DIR = PROJECT_ROOT / "reports"
+OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 
 
 st.set_page_config(
@@ -54,7 +49,9 @@ def main() -> None:
 
     available_models = list_available_models()
 
-    with st.container():
+    single_tab, compare_tab, qa_tab = st.tabs(["单仓库分析", "双仓库对比", "仓库代码问答"])
+
+    with single_tab:
         with st.form("analysis_form", clear_on_submit=False, enter_to_submit=True, border=False):
             input_col, refresh_col, llm_col, model_col, button_col = st.columns([4.8, 1.1, 1.2, 1.7, 1.2])
             with input_col:
@@ -65,117 +62,72 @@ def main() -> None:
                     key="repo_url_draft",
                 )
             with refresh_col:
-                refresh = st.toggle("重新克隆", value=False)
+                refresh = st.toggle("重新克隆", value=False, key="single_refresh")
             with llm_col:
-                use_llm = st.toggle("Ollama", value=True)
+                use_llm = st.toggle("Ollama", value=True, key="single_llm")
             with model_col:
                 model = _model_selector(available_models)
             with button_col:
-                analyze_clicked = st.form_submit_button(
-                    "开始分析",
-                    type="primary",
-                    use_container_width=True,
-                )
+                analyze_clicked = st.form_submit_button("开始分析", type="primary", use_container_width=True)
 
-    if analyze_clicked:
-        submitted_repo_url = repo_url_draft.strip()
-        if not submitted_repo_url:
-            st.warning("请输入 GitHub 仓库 URL。")
+        if analyze_clicked:
+            submitted_repo_url = repo_url_draft.strip()
+            if not submitted_repo_url:
+                st.warning("请输入 GitHub 仓库 URL。")
+            else:
+                try:
+                    st.session_state["selected_model"] = model
+                    st.session_state["selected_use_llm"] = use_llm
+                    with st.spinner("正在分析中..."):
+                        st.session_state["analysis_result"] = run_pipeline(submitted_repo_url, refresh, use_llm, model)
+                except RepoLoadError as exc:
+                    st.error(str(exc))
+                except Exception as exc:
+                    st.error(f"分析过程中出现异常：{exc}")
+
+        result = st.session_state.get("analysis_result")
+        if result:
+            render_dashboard(result)
         else:
-            try:
-                st.session_state["selected_model"] = model
-                st.session_state["selected_use_llm"] = use_llm
-                with st.spinner("正在分析中..."):
-                    st.session_state["analysis_result"] = run_pipeline(submitted_repo_url, refresh, use_llm, model)
-            except RepoLoadError as exc:
-                st.error(str(exc))
-            except Exception as exc:  # Defensive boundary for demo friendliness.
-                st.error(f"分析过程中出现异常：{exc}")
+            render_empty_state()
 
-    result = st.session_state.get("analysis_result")
-    if result:
-        render_dashboard(result)
-    else:
-        render_empty_state()
+    with compare_tab:
+        render_compare_workspace()
+
+    with qa_tab:
+        result = st.session_state.get("analysis_result")
+        if result:
+            render_qa_panel(result)
+        else:
+            st.info("请先在“单仓库分析”中完成一次分析，再进行仓库代码问答。")
 
 
 def run_pipeline(repo_url: str, refresh: bool, use_llm: bool, model: str) -> dict:
     progress = st.progress(0)
     status = st.empty()
+    def update(message: str, percent: int) -> None:
+        status.info(message)
+        progress.progress(percent)
 
-    steps = [
-        ("通过 GitHub API 获取仓库信息和 README", 8),
-        ("克隆仓库或读取本地缓存", 18),
-        ("分析项目结构和代码规模", 30),
-        ("识别技术栈和依赖版本", 42),
-        ("分析项目用途、README 内容和架构模式", 52),
-        ("评估代码质量", 64),
-        ("检查文档完整性", 74),
-        ("扫描安全与工程规范", 84),
-        ("运行 Multi-Agent 协作汇总", 92),
-        ("LLM 正在分析中，生成结构化报告", 100),
-    ]
+    analysis = analyze_repository(repo_url, ANALYZED_REPOS_DIR, refresh=refresh, progress=update)
+    analysis["analysis_options"] = {"use_llm": use_llm, "model": model}
 
-    status.info(steps[0][0])
-    github_api = fetch_github_api_snapshot(repo_url)
-    progress.progress(steps[0][1])
-
-    status.info(steps[1][0])
-    repo_info = clone_or_use_cache(repo_url, ANALYZED_REPOS_DIR, refresh=refresh).to_dict()
-    repo_path = Path(repo_info["local_path"])
-    progress.progress(steps[1][1])
-
-    status.info(steps[2][0])
-    file_tree = analyze_file_tree(repo_path)
-    progress.progress(steps[2][1])
-
-    status.info(steps[3][0])
-    tech_stack = detect_tech_stack(repo_path, file_tree)
-    progress.progress(steps[3][1])
-
-    status.info(steps[4][0])
-    architecture = analyze_architecture(repo_path, file_tree, tech_stack)
-    project_overview = analyze_project_overview(repo_path, github_api, tech_stack, file_tree, architecture)
-    progress.progress(steps[4][1])
-
-    status.info(steps[5][0])
-    code_quality = analyze_code_quality(repo_path)
-    progress.progress(steps[5][1])
-
-    status.info(steps[6][0])
-    documentation = check_documentation(repo_path)
-    progress.progress(steps[6][1])
-
-    status.info(steps[7][0])
-    security = check_security(repo_path)
-    progress.progress(steps[7][1])
-
-    analysis = {
-        "repo_info": repo_info,
-        "github_api": github_api,
-        "file_tree": file_tree,
-        "tech_stack": tech_stack,
-        "project_overview": project_overview,
-        "architecture": architecture,
-        "code_quality": code_quality,
-        "documentation": documentation,
-        "security": security,
-        "analysis_options": {"use_llm": use_llm, "model": model},
-    }
-
-    status.info(steps[8][0])
-    analysis["agents"] = run_agent_workflow(analysis)
-    progress.progress(steps[8][1])
-
-    status.info(steps[9][0])
+    status.info("生成覆盖 10 个维度的结构化报告")
+    structured_report = generate_repository_markdown(analysis)
     report_result = generate_report(analysis, model=model, use_llm=use_llm)
-    analysis["report"] = report_result["report"]
+    if report_result["mode"] == "ollama":
+        analysis["report"] = f"{report_result['report']}\n\n---\n\n{structured_report}"
+    else:
+        analysis["report"] = structured_report
     analysis["report_meta"] = {
         "mode": report_result["mode"],
         "model": report_result["model"],
-        "message": report_result["message"],
+        "message": f"已生成 10 维度结构化报告。{report_result['message']}",
     }
-    progress.progress(steps[9][1])
+    repo = analysis.get("repo_info") or {}
+    log_name = f"{repo.get('owner', 'repo')}_{repo.get('name', 'analysis')}"
+    analysis["agent_log_path"] = save_agent_logs(log_name, analysis.get("agent_logs") or [], OUTPUTS_DIR)
+    progress.progress(100)
     status.success("分析完成")
     return analysis
 
@@ -318,7 +270,7 @@ def render_dashboard(result: dict) -> None:
             st.success("未发现明显安全与工程规范风险。")
 
     with right:
-        render_qa_panel(result)
+        render_dimension_score_panel(result)
 
         st.markdown("### 改进建议")
         with st.expander("代码质量扣分原因", expanded=True):
@@ -336,17 +288,25 @@ def render_dashboard(result: dict) -> None:
 
         st.markdown("### 报告导出")
         repo_name = f"{repo['owner']}_{repo['name']}"
-        export_col, download_col = st.columns(2)
+        export_col, md_col, json_col = st.columns(3)
         with export_col:
             if st.button("保存报告", use_container_width=True):
-                report_path = save_markdown_report(repo_name, result["report"], REPORTS_DIR)
-                st.success(f"已保存到 {report_path.relative_to(PROJECT_ROOT)}")
-        with download_col:
+                paths = save_report_files(repo_name, result["report"], result, OUTPUTS_DIR)
+                st.success(f"已保存到 {Path(paths['markdown']).relative_to(PROJECT_ROOT)}")
+        with md_col:
             st.download_button(
-                "下载 Markdown",
+                "Markdown",
                 data=result["report"].encode("utf-8"),
                 file_name=f"{repo_name}_analysis.md",
                 mime="text/markdown",
+                use_container_width=True,
+            )
+        with json_col:
+            st.download_button(
+                "JSON",
+                data=json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8"),
+                file_name=f"{repo_name}_analysis.json",
+                mime="application/json",
                 use_container_width=True,
             )
 
@@ -428,6 +388,169 @@ def render_report_workspace(result: dict) -> None:
             st.json(result.get("project_overview") or {})
         st.markdown("#### 安全扫描")
         st.json(result.get("security") or {})
+
+
+def render_dimension_score_panel(result: dict) -> None:
+    st.markdown("### 10 维度评分")
+    scores = result.get("dimension_scores") or {}
+    if not scores:
+        st.info("暂无维度评分。")
+        return
+    score_df = pd.DataFrame(
+        [{"分析维度": key, "得分": value} for key, value in scores.items()]
+    )
+    st.dataframe(score_df, use_container_width=True, hide_index=True)
+    summary = result.get("final_summary") or {}
+    with st.expander("主要优点", expanded=False):
+        for item in summary.get("strengths") or ["暂无明显优势。"]:
+            st.write(f"- {item}")
+    with st.expander("主要问题", expanded=False):
+        for item in summary.get("issues") or ["暂无明显问题。"]:
+            st.write(f"- {item}")
+
+
+def render_compare_workspace() -> None:
+    with st.form("compare_form", clear_on_submit=False, enter_to_submit=True, border=False):
+        col_a, col_b, refresh_col, button_col = st.columns([3.2, 3.2, 1.1, 1.2])
+        with col_a:
+            repo_a = st.text_input(
+                "仓库 A",
+                placeholder="https://github.com/pallets/flask",
+                label_visibility="collapsed",
+                key="compare_repo_a",
+            )
+        with col_b:
+            repo_b = st.text_input(
+                "仓库 B",
+                placeholder="https://github.com/fastapi/fastapi",
+                label_visibility="collapsed",
+                key="compare_repo_b",
+            )
+        with refresh_col:
+            refresh = st.toggle("重新克隆", value=False, key="compare_refresh")
+        with button_col:
+            compare_clicked = st.form_submit_button("开始对比", type="primary", use_container_width=True)
+
+    if compare_clicked:
+        if not repo_a.strip() or not repo_b.strip():
+            st.warning("请输入两个 GitHub 仓库 URL。")
+        else:
+            try:
+                with st.spinner("正在对比分析中..."):
+                    st.session_state["comparison_result"] = run_compare_pipeline(repo_a.strip(), repo_b.strip(), refresh)
+            except RepoLoadError as exc:
+                st.error(str(exc))
+            except Exception as exc:
+                st.error(f"对比过程中出现异常：{exc}")
+
+    result = st.session_state.get("comparison_result")
+    if result:
+        render_comparison_dashboard(result)
+    else:
+        st.markdown(
+            """
+            <div class="empty-panel">
+              <div class="empty-title">输入两个公开 GitHub 仓库 URL 后开始对比</div>
+              <div class="muted">系统会分别运行单仓库 Multi-Agent 分析，再由 Comparison Agent 进行 10 个维度横向对比。</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def run_compare_pipeline(repo_a: str, repo_b: str, refresh: bool) -> dict:
+    progress = st.progress(0)
+    status = st.empty()
+
+    def update(message: str, percent: int) -> None:
+        status.info(message)
+        progress.progress(percent)
+
+    result = compare_repositories(repo_a, repo_b, ANALYZED_REPOS_DIR, refresh=refresh, progress=update)
+    report = generate_comparison_markdown(result)
+    result["report"] = report
+    result["report_meta"] = {
+        "mode": "comparison-template",
+        "message": "已生成双仓库 10 维度对比报告。",
+    }
+    comparison = result.get("comparison") or {}
+    name = f"compare_{(comparison.get('repo_a') or {}).get('name', 'repo_a')}_{(comparison.get('repo_b') or {}).get('name', 'repo_b')}"
+    result["agent_log_path"] = save_agent_logs(name, result.get("agent_logs") or [], OUTPUTS_DIR)
+    progress.progress(100)
+    status.success("对比完成")
+    return result
+
+
+def render_comparison_dashboard(result: dict) -> None:
+    comparison = result.get("comparison") or {}
+    repo_a = comparison.get("repo_a") or {}
+    repo_b = comparison.get("repo_b") or {}
+
+    st.markdown("### 总体结论")
+    st.markdown(
+        f"""
+        <div class="glass-card">
+          <div class="card-title">{repo_a.get('owner')}/{repo_a.get('name')} vs {repo_b.get('owner')}/{repo_b.get('name')}</div>
+          <div class="overview-purpose">{comparison.get('overall_conclusion', '暂无结论。')}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    k1, k2, k3 = st.columns(3)
+    k1.metric("仓库 A 总分", repo_a.get("overall_score", 0))
+    k2.metric("仓库 B 总分", repo_b.get("overall_score", 0))
+    k3.metric("对比维度", len(comparison.get("dimension_comparison") or []))
+
+    left, right = st.columns([1.35, 1.0], gap="large")
+    with left:
+        st.markdown("### 维度评分对比")
+        rows = comparison.get("dimension_comparison") or []
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        st.plotly_chart(_comparison_radar_figure(rows), use_container_width=True)
+
+    with right:
+        st.markdown("### 适用场景建议")
+        for key, value in (comparison.get("scenario_recommendations") or {}).items():
+            st.write(f"- **{key}**：{value}")
+
+        st.markdown("### 报告导出")
+        name = f"compare_{repo_a.get('name', 'repo_a')}_{repo_b.get('name', 'repo_b')}"
+        save_col, md_col, json_col = st.columns(3)
+        with save_col:
+            if st.button("保存对比", use_container_width=True):
+                paths = save_report_files(name, result["report"], result, OUTPUTS_DIR)
+                st.success(f"已保存到 {Path(paths['markdown']).relative_to(PROJECT_ROOT)}")
+        with md_col:
+            st.download_button(
+                "Markdown",
+                data=result["report"].encode("utf-8"),
+                file_name=f"{name}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+        with json_col:
+            st.download_button(
+                "JSON",
+                data=json.dumps(result, ensure_ascii=False, indent=2).encode("utf-8"),
+                file_name=f"{name}.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+
+    detail_tabs = st.tabs(["技术栈差异", "架构差异", "质量差异", "文档测试部署", "风险差异", "对比报告"])
+    with detail_tabs[0]:
+        st.json(comparison.get("tech_stack_comparison") or {})
+    with detail_tabs[1]:
+        st.json(comparison.get("architecture_comparison") or {})
+    with detail_tabs[2]:
+        st.json(comparison.get("quality_comparison") or {})
+    with detail_tabs[3]:
+        st.json(comparison.get("documentation_test_deploy_comparison") or {})
+    with detail_tabs[4]:
+        st.json(comparison.get("risk_comparison") or {})
+    with detail_tabs[5]:
+        st.markdown(result.get("report", ""))
 
 
 def render_qa_panel(result: dict) -> None:
@@ -548,23 +671,16 @@ def _category_dataframe(file_tree: dict) -> pd.DataFrame:
 
 
 def _score_radar_figure(result: dict) -> go.Figure:
-    quality = result.get("code_quality") or {}
-    docs = result.get("documentation") or {}
-    security = result.get("security") or {}
-    tech_stack = result.get("tech_stack") or {}
-    architecture = result.get("architecture") or {}
-    tests = quality.get("tests") or {}
-    tools = set(tech_stack.get("tools") or [])
-
-    dimensions = ["代码质量", "文档", "安全规范", "测试", "部署", "架构清晰度"]
-    values = [
-        quality.get("score", 0),
-        docs.get("score", 0),
-        security.get("score", 0),
-        100 if tests.get("has_tests") else 35,
-        100 if {"Docker", "Docker Compose", "GitHub Actions"} & tools else 45,
-        round((architecture.get("confidence", 0) or 0) * 100),
-    ]
+    scores = result.get("dimension_scores") or {}
+    if scores:
+        dimensions = list(scores.keys())
+        values = [round(float(value) * 10, 1) for value in scores.values()]
+    else:
+        quality = result.get("code_quality") or {}
+        docs = result.get("documentation") or {}
+        security = result.get("security") or {}
+        dimensions = ["代码质量", "文档", "安全规范"]
+        values = [quality.get("score", 0), docs.get("score", 0), security.get("score", 0)]
     closed_dimensions = dimensions + [dimensions[0]]
     closed_values = values + [values[0]]
 
@@ -596,6 +712,48 @@ def _score_radar_figure(result: dict) -> go.Figure:
     return fig
 
 
+def _comparison_radar_figure(rows: list[dict]) -> go.Figure:
+    if not rows:
+        return go.Figure()
+    dimensions = [row.get("分析维度") for row in rows]
+    values_a = [round(float(row.get("仓库 A 得分") or 0) * 10, 1) for row in rows]
+    values_b = [round(float(row.get("仓库 B 得分") or 0) * 10, 1) for row in rows]
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatterpolar(
+            r=values_a + [values_a[0]],
+            theta=dimensions + [dimensions[0]],
+            fill="toself",
+            name="仓库 A",
+            line_color="#5eead4",
+            fillcolor="rgba(94, 234, 212, 0.18)",
+        )
+    )
+    fig.add_trace(
+        go.Scatterpolar(
+            r=values_b + [values_b[0]],
+            theta=dimensions + [dimensions[0]],
+            fill="toself",
+            name="仓库 B",
+            line_color="#fbbf24",
+            fillcolor="rgba(251, 191, 36, 0.14)",
+        )
+    )
+    fig.update_layout(
+        height=360,
+        margin=dict(l=18, r=18, t=22, b=18),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#dbeafe",
+        polar=dict(
+            bgcolor="rgba(15, 23, 42, 0.35)",
+            radialaxis=dict(visible=True, range=[0, 100], color="#94a3b8"),
+            angularaxis=dict(color="#bfdbfe"),
+        ),
+    )
+    return fig
+
+
 def _badge_block(items: list[str]) -> None:
     badges = "".join(f'<span class="badge">{item}</span>' for item in items[:16])
     st.markdown(f'<div class="badge-wrap">{badges}</div>', unsafe_allow_html=True)
@@ -604,6 +762,8 @@ def _badge_block(items: list[str]) -> None:
 def _ensure_project_dirs() -> None:
     ANALYZED_REPOS_DIR.mkdir(parents=True, exist_ok=True)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+    (OUTPUTS_DIR / "agent_logs").mkdir(parents=True, exist_ok=True)
 
 
 def _inject_css() -> None:

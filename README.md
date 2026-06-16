@@ -1,6 +1,6 @@
 # GitHub 仓库智能分析器
 
-一个面向课程设计答辩的 Streamlit Web Dashboard。用户输入公开 GitHub 仓库 URL 后，系统会通过 GitHub API 获取仓库元信息，再克隆仓库执行多维度确定性静态分析，最后基于结构化结果调用本地 Ollama 生成报告。它不是“把网址丢给 LLM 总结”，而是“GitHub API + 静态分析 + Multi-Agent 汇总 + RAG 问答 + LLM 报告生成”的组合式仓库洞察工具。
+一个面向课程设计答辩的 Streamlit Web Dashboard。系统支持“单仓库分析”和“双仓库对比”两种模式：用户输入公开 GitHub 仓库 URL 后，系统会通过 GitHub API 获取仓库元信息，再克隆仓库构建 `RepositoryContext`，由多个 Agent 调用工具提取证据、完成判断和评分，最后生成结构化 Markdown / JSON 报告。它不是“把网址丢给 LLM 总结”，而是“GitHub API + RepositoryContext + 工具证据 + Multi-Agent 分析 + RAG 问答 + 报告生成”的组合式仓库洞察工具。
 
 ## 项目背景
 
@@ -17,7 +17,9 @@
 - 代码质量分析：使用 Python `ast` 统计函数、类、平均函数长度、超长函数、超长文件、TODO/FIXME/HACK 和测试目录。
 - 文档完整性检查：检查 README、安装说明、运行方式、使用示例、LICENSE、依赖文件和 `.gitignore`。
 - 安全与工程规范检查：发现 `.env`、疑似 token/api_key/password/secret、虚拟环境、`node_modules`、`__pycache__` 和大文件。
-- Multi-Agent 协作：架构 Agent、技术栈 Agent、代码质量 Agent、文档 Agent 和汇总 Agent 输出结构化日志、耗时和 token 估算。
+- Multi-Agent 协作：工具只提供事实和证据，Overview、Architecture、Tech Stack、Code Quality、Documentation、Test Deploy、Risk、Summary 和 Comparison Agent 负责判断、评分、解释和建议。
+- 双仓库对比：输入两个 GitHub URL，分别完成单仓库分析，再由 Comparison Agent 从 10 个维度横向比较优劣和适用场景。
+- 10 维度报告：覆盖项目概览、技术栈、架构、代码规模、代码质量、文档完整性、依赖健康度、测试覆盖、部署方式和潜在问题。
 - RAG 仓库问答：对 README、配置和代码片段做轻量检索，再结合 Ollama 或模板回答“怎么运行”“模型有哪些”等问题。
 - LLM 报告生成：默认调用本地 Ollama `qwen2.5:7b`；如果本机只有其他模型，页面会自动列出可用模型；Ollama 不可用时自动退化为模板报告。
 - Dashboard 展示：深色 SaaS 风格页面，包含指标卡、进度条、文件树、技术栈标签、文件类型图、质量评分雷达图、风险表、Agent 日志、RAG 问答和 Markdown 导出。
@@ -28,28 +30,19 @@
 flowchart LR
     A["输入 GitHub URL"] --> A1["GitHub API: repo / README / tree"]
     A --> B["git clone / 使用缓存"]
-    B --> C["项目结构与代码规模"]
-    B --> D["技术栈与依赖版本"]
-    B --> E["架构模式识别"]
-    B --> F["AST 代码质量"]
-    B --> G["文档完整性"]
-    B --> H["安全与工程规范"]
-    A1 --> I["结构化分析 JSON"]
-    C --> I
-    D --> I
-    E --> I
-    F --> I
-    G --> I
-    H --> I
-    I --> J["Multi-Agent 协作汇总"]
-    J --> K["Ollama / 模板报告"]
-    I --> L["轻量 RAG 检索问答"]
-    K --> M["Streamlit Dashboard"]
-    L --> M
-    M --> N["Markdown 导出"]
+    B --> C["RepositoryContext: README / 依赖 / 测试 / 部署 / 源码抽样"]
+    C --> D["Tools: 提取事实、指标、证据"]
+    D --> E["Agents: 判断、评分、解释、建议"]
+    E --> F["Summary Agent: 10 维度结构化报告"]
+    E --> G["Comparison Agent: 双仓库横向对比"]
+    F --> H["Markdown / JSON 报告"]
+    G --> H
+    C --> I["轻量 RAG 检索问答"]
+    H --> J["Streamlit Dashboard"]
+    I --> J
 ```
 
-LLM 只接收结构化分析结果或 RAG 检索到的小片段，不接收完整仓库源码。
+LLM 只接收结构化分析结果或 RAG 检索到的小片段，不接收完整仓库源码。静态工具不直接生成最终结论，Agent 必须基于 evidence 输出判断。
 
 ## 项目结构
 
@@ -60,6 +53,10 @@ github-repo-analyzer/
 |-- requirements.txt
 |-- .gitignore
 |-- src/
+|   |-- analysis_models.py
+|   |-- context_builder.py
+|   |-- orchestrator.py
+|   |-- report_generator.py
 |   |-- github_api_client.py
 |   |-- project_overview_analyzer.py
 |   |-- repo_loader.py
@@ -70,12 +67,27 @@ github-repo-analyzer/
 |   |-- doc_checker.py
 |   |-- security_checker.py
 |   |-- agent_orchestrator.py
+|   |-- agents/
+|   |   |-- base_agent.py
+|   |   |-- overview_agent.py
+|   |   |-- architecture_agent.py
+|   |   |-- tech_stack_agent.py
+|   |   |-- code_quality_agent.py
+|   |   |-- documentation_agent.py
+|   |   |-- test_deploy_agent.py
+|   |   |-- risk_agent.py
+|   |   |-- summary_agent.py
+|   |   `-- comparison_agent.py
+|   |-- tools/
 |   |-- rag_qa.py
 |   |-- llm_reporter.py
 |   `-- report_exporter.py
 |-- data/
 |   `-- analyzed_repos/
 |-- reports/
+|-- outputs/
+|   |-- agent_logs/
+|   `-- .gitkeep
 `-- docs/
     |-- architecture_design.md
     |-- evaluation_report.md
@@ -123,7 +135,13 @@ streamlit run app.py
 https://github.com/streamlit/streamlit-hello
 ```
 
-点击“开始分析”后，按钮会切换为“正在分析中...”，页面会展示 GitHub API 获取、仓库克隆、结构分析、技术栈识别、架构识别、质量评估、安全扫描、Multi-Agent 汇总和 LLM 报告生成的进度。
+页面包含三个 Tab：
+
+- 单仓库分析：输入一个 GitHub URL，展示 10 维度分析、Agent 日志、雷达图、文件树和 Markdown/JSON 下载。
+- 双仓库对比：输入两个 GitHub URL，由 Comparison Agent 输出维度评分对比、技术栈差异、架构差异和适用场景建议。
+- 仓库代码问答：对已分析仓库进行轻量 RAG 问答，回答尽量附带文件路径。
+
+点击“开始分析”或“开始对比”后，页面会展示 GitHub API 获取、仓库克隆、RepositoryContext 构建、各 Agent 调用工具分析、报告生成的进度。
 
 ## 测试与自检
 
@@ -177,7 +195,25 @@ python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 
 ### 8. Multi-Agent 协作
 
-`src/agent_orchestrator.py` 将确定性分析结果分发给架构 Agent、技术栈 Agent、代码质量 Agent、文档 Agent 和汇总 Agent。每个 Agent 输出结构化 JSON、耗时和 token 估算，Dashboard 中可展开查看。
+`src/orchestrator.py` 负责调度完整流程。`src/context_builder.py` 先构建 `RepositoryContext`，收集 README、依赖文件、配置文件、测试文件、部署文件、源码抽样和 import 语句等事实。
+
+`src/tools/` 和根目录中的工具模块只负责提取事实、指标和证据，不直接生成最终结论。`src/agents/` 中每个 Agent 继承 `BaseAgent`，统一输出：
+
+```text
+agent_name / summary / findings / evidence / score / suggestions / confidence / raw_output
+```
+
+Agent 分工：
+
+- Overview Agent：判断项目用途、项目类型、目标用户。
+- Architecture Agent：调用文件树和架构工具，判断结构模式、入口文件和模块职责。
+- Tech Stack Agent：调用技术栈工具，识别语言、框架、依赖和版本。
+- Code Quality Agent：调用 AST 质量工具，分析函数长度、长文件、TODO、测试线索。
+- Documentation Agent：评估 README、安装/运行/示例、API 文档完整性。
+- Test Deploy Agent：评估测试结构、测试框架、CI、Docker、环境变量示例和部署说明。
+- Risk Agent：评估依赖健康度、安全风险和工程规范问题。
+- Summary Agent：汇总 10 个分析维度，生成结构化报告输入。
+- Comparison Agent：对两个仓库的 10 个维度进行横向对比。
 
 ### 9. RAG 仓库问答
 
@@ -185,25 +221,40 @@ python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 
 ### 10. 报告生成与导出
 
-`src/llm_reporter.py` 将结构化结果提交给 Ollama，或在不可用时生成模板 Markdown 报告。`src/report_exporter.py` 支持把 Markdown 报告保存到 `reports/`，文件名包含仓库名和时间戳。
+`src/report_generator.py` 生成覆盖 10 个维度的 Markdown / JSON 报告，并保存到 `outputs/`。Agent 日志保存到 `outputs/agent_logs/`。`src/llm_reporter.py` 保留为可选 Ollama 补充报告能力，Ollama 不可用时不影响结构化报告。
 
 ## 示例演示流程
 
+### 单仓库分析演示
+
 1. 运行 `streamlit run app.py`。
-2. 在顶部输入框粘贴公开 GitHub 仓库 URL。
-3. 选择是否重新克隆，选择可用 Ollama 模型。
-4. 点击“开始分析”，观察按钮切换为“正在分析中...”和进度条推进。
-5. 查看左侧项目内容概览、仓库信息、GitHub API 快照、技术栈、文件类型图和评分雷达图。
-6. 查看中间架构分析、文件树、目录分析、风险检测和 Multi-Agent 协作日志。
-7. 查看右侧 AI 报告，并在“仓库代码问答”中提问。
-8. 点击“保存报告”导出 Markdown 到 `reports/`。
+2. 打开“单仓库分析” Tab，输入公开 GitHub 仓库 URL。
+3. 点击“开始分析”，观察 RepositoryContext 构建、各 Agent 调用工具和报告生成进度。
+4. 展示项目概览、技术栈标签、文件树、10 维度评分雷达图和 Agent 日志。
+5. 下载 Markdown / JSON 报告，说明报告覆盖 10 个维度且每个结论有 evidence。
+
+### 双仓库对比演示
+
+1. 打开“双仓库对比” Tab。
+2. 输入两个仓库 URL，例如一个 Flask 项目和一个 FastAPI 项目。
+3. 点击“开始对比”，系统会分别完成单仓库分析，再由 Comparison Agent 汇总。
+4. 展示维度评分对比表、雷达图、技术栈差异、架构差异、风险差异和场景建议。
+5. 说明哪个仓库更适合学习、二次开发、生产部署和课程设计参考。
+
+### 仓库代码问答演示
+
+1. 先完成一次单仓库分析。
+2. 打开“仓库代码问答” Tab，输入“这个项目怎么运行？”或“数据库模型有哪些？”。
+3. 展示 RAG 检索来源和回答。
 
 ## 课程设计答辩亮点
 
 - 分析链路可解释：每个评分和建议都有静态分析指标作为依据。
 - 不是简单 LLM 总结：LLM 只负责把结构化结果组织成报告，不直接读取整个仓库源码。
 - 支持无 LLM 模式：Ollama 不可用时仍能输出基础分析报告，保证演示稳定。
-- Multi-Agent 可展示：不同 Agent 的输入、输出、耗时和 token 估算可在 Dashboard 中展开。
+- Multi-Agent 可展示：不同 Agent 的输入、输出、证据、评分、建议、耗时和 token 估算可在 Dashboard 中展开。
+- 工具与 Agent 分层清晰：工具只提取事实，Agent 基于 evidence 做判断，避免静态工具直接生成最终结论。
+- 双仓库对比：Comparison Agent 基于两个仓库已有结构化结果进行横向比较，不凭空编造。
 - RAG 问答可演示：支持针对仓库代码和文档提问，回答附带检索来源。
 - 内容概览可解释：用户输入链接后能直接看到仓库用途、项目类型、目标用户和判断证据。
 - 工程结构清晰：每类分析逻辑拆分到独立模块，便于测试、扩展和讲解。

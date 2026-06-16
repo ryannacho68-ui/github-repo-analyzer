@@ -26,6 +26,10 @@ data/analyzed_repos/*
 !data/analyzed_repos/.gitkeep
 reports/*
 !reports/.gitkeep
+outputs/*
+!outputs/.gitkeep
+!outputs/agent_logs/
+!outputs/agent_logs/.gitkeep
 
 .DS_Store
 Thumbs.db
