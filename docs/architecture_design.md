@@ -57,13 +57,13 @@ flowchart TB
 
 | Agent | 输入 | 输出 |
 | --- | --- | --- |
-| 架构分析 Agent | 文件结构、入口文件、框架、工具 | 架构模式、置信度、模块划分、判断依据 |
+| 架构分析 Agent | 文件结构、入口文件、框架、工具 | 规则判断 + Ollama 解释后的架构模式、置信度、模块划分、判断依据 |
 | 技术栈 Agent | 依赖配置、后缀统计、GitHub API 语言 | 语言、框架、依赖、版本、工程工具 |
 | 代码质量 Agent | AST 指标、长函数、TODO、测试目录 | 质量评分、问题列表、测试情况 |
 | 文档 Agent | README 检查、LICENSE、依赖文件 | 文档评分、检查项、改进建议 |
 | 汇总 Agent | 以上 Agent 输出 | 项目类型、核心发现、风险摘要 |
 
-项目用途分析不依赖 LLM。系统会优先使用 GitHub API description 和包元信息，其次使用 README 标题与开头段落，再结合 topics、框架和目录结构推断项目类型。Dashboard 会展示置信度和证据来源，避免用户输入链接后仍不知道仓库是做什么的。
+项目用途分析先由规则模块给出基础判断。系统会优先使用 GitHub API description 和包元信息，其次使用 README 标题与开头段落，再结合 topics、框架和目录结构推断项目类型；启用 Ollama 时，Overview Agent 只基于这些受控证据补充语义解释。Dashboard 会展示置信度和证据来源，避免用户输入链接后仍不知道仓库是做什么的。
 
 Dashboard 会展示每个 Agent 的输入摘要、输出 JSON、耗时和 token 估算，方便答辩说明“协作过程”。
 

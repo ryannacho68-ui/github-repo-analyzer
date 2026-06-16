@@ -8,7 +8,7 @@
 
 - 单仓库分析：输入一个 GitHub URL，输出 10 个维度的分析报告。
 - 双仓库对比：输入两个 GitHub URL，分别分析后由 Comparison Agent 横向对比。
-- 混合式 Agent：Overview、Tech Stack、Summary、Comparison Agent 可调用 Ollama；质量、风险、测试部署 Agent 主要使用规则分析。
+- 混合式 Agent：Overview、Tech Stack、Architecture、Summary、Comparison Agent 可调用 Ollama；质量、风险、测试部署 Agent 主要使用规则分析。
 - GitHub API：获取仓库元数据、README 摘要和远程文件树，API 限流时自动降级到本地 clone 分析。
 - 静态分析：文件树、文件类型、语言占比、依赖文件、代码行数、Python AST、TODO、长函数、长文件、文档完整性、部署文件和风险信号。
 - Dashboard 展示：指标卡、文件树、技术栈标签、质量评分雷达图、维度评分表、风险列表、Agent 日志和报告下载。
@@ -48,12 +48,12 @@ LLM Agent 负责：
 
 - Overview Agent：调用 Ollama，基于 README 摘要、GitHub 元数据、文件结构和入口候选判断项目用途、解决的问题、目标用户和项目类型。
 - Tech Stack Agent：先用规则工具识别依赖、语言、import 和配置，再调用 Ollama 解释技术栈及依赖作用。
+- Architecture Agent：先用文件树、入口文件和目录职责做规则判断，再调用 Ollama 基于结构化证据解释架构模式、模块划分和设计风险。
 - Summary Agent：汇总所有 Agent 的结构化 JSON，调用 Ollama 生成最终自然语言报告，同时保留规则生成的 10 维度评分。
 - Comparison Agent：先用规则方式生成两个仓库的 10 维度对比表，再调用 Ollama 生成综合对比结论和适用场景建议。
 
 规则型 Agent 负责：
 
-- Architecture Agent：基于文件树、入口文件和目录职责判断架构模式。
 - Code Quality Agent：使用 AST、函数长度、长文件、TODO、测试线索等规则分析。
 - Document Agent：检查 README、安装、运行、示例、API 文档和 docs 信号。
 - Risk Agent：基于规则扫描敏感信息、依赖健康度和工程规范风险，不虚构 CVE。
@@ -208,7 +208,7 @@ python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 ## 答辩亮点
 
 - 不是简单 LLM 总结，而是“静态规则工具先提取证据，LLM Agent 再做语义解释和报告生成”。
-- Overview Agent 与 Tech Stack Agent 确实调用 Ollama 分析 README 和文件结构摘要，符合题目对 LLM 分析的要求。
+- Overview、Tech Stack、Architecture 与 Summary Agent 确实调用 Ollama 分析受控结构化摘要，符合题目对 LLM 分析的要求。
 - Code Quality、Risk、Test Deploy 继续使用规则分析，保证可解释性，不伪造漏洞或覆盖率。
 - 所有 Agent 输出结构化 JSON，并记录 evidence、tools_used、llm_used、elapsed_seconds 和 status。
 - Ollama 不可用时自动降级，课程演示不依赖外部服务稳定性。

@@ -46,7 +46,7 @@ flowchart TB
 | --- | --- | --- |
 | Overview Agent | 是 | 基于 README、GitHub 元数据、文件结构和入口文件判断项目用途、目标用户和项目类型 |
 | Tech Stack Agent | 是 | 先用规则提取依赖、语言、import 和配置，再由 LLM 解释技术栈 |
-| Architecture Agent | 否 | 基于文件树、目录命名、入口文件和技术栈判断架构模式 |
+| Architecture Agent | 是 | 先用规则提取文件树、目录命名、入口文件和技术栈证据，再由 LLM 解释架构模式、模块划分和设计风险 |
 | Code Quality Agent | 否 | 使用 Python AST 和规则统计长函数、长文件、TODO、测试线索 |
 | Document Agent | 否 | 检查 README、安装、运行、示例、API 文档和 docs 目录 |
 | Test Deploy Agent | 否 | 检查 tests、测试框架、CI/CD、Docker、环境变量示例和启动脚本 |
@@ -97,7 +97,7 @@ LLM 只接收受控上下文：
 - `status`
 - `error_message`
 
-答辩时可以展示 Overview Agent 和 Tech Stack Agent 的日志，证明它们确实调用了 Ollama；也可以展示 Code Quality 和 Risk Agent 的日志，说明它们保持规则分析和可解释评分。
+答辩时可以展示 Overview、Tech Stack、Architecture 和 Summary Agent 的日志，证明它们确实调用了 Ollama；也可以展示 Code Quality、Risk 和 Test Deploy Agent 的日志，说明它们保持规则分析和可解释评分。
 
 ## 降级机制
 
@@ -118,4 +118,3 @@ LLM 只接收受控上下文：
 - RAG：问答模块检索 README、配置和源码片段后回答。
 - 结构化输出：AgentResult、RepositoryContext、ComparisonResult 都是结构化数据。
 - 工程实践：模块化代码、测试、降级、`.gitignore`、报告导出和 Dashboard 产品化展示。
-

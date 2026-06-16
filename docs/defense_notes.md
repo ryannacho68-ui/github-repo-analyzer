@@ -32,6 +32,7 @@
 LLM 部分负责：
 
 - 读取前面模块生成的结构化 JSON。
+- 在 Overview、Tech Stack、Architecture 等 Agent 中基于受控证据做语义解释，不直接读取整个仓库。
 - 将指标转化为适合阅读的 Markdown 报告。
 - 给出新人上手建议和后续改进建议。
 - 在 Ollama 不可用时，由模板报告替代，保证系统可运行。
@@ -107,7 +108,7 @@ A：Streamlit 适合快速构建数据分析 Dashboard，支持输入框、按�
 
 ### Q8：Multi-Agent 是怎么体现的？
 
-A：项目实现了逻辑 Multi-Agent 编排。架构 Agent、技术栈 Agent、代码质量 Agent、文档 Agent 和汇总 Agent 分别处理不同结构化输入，输出 JSON。Dashboard 会显示每个 Agent 的输入摘要、输出、耗时和 token 估算。这样可以体现 Agent 分工与汇总过程，而不是一个函数直接生成所有结论。
+A：项目实现了逻辑 Multi-Agent 编排。架构 Agent、技术栈 Agent、代码质量 Agent、文档 Agent 和汇总 Agent 分别处理不同结构化输入，输出 JSON。其中架构、技术栈、概览和汇总 Agent 可以调用 Ollama，但只接收规则工具产出的受控摘要。Dashboard 会显示每个 Agent 的输入摘要、输出、耗时和 token 估算。这样可以体现 Agent 分工与汇总过程，而不是一个函数直接生成所有结论。
 
 ### Q9：RAG 问答如何避免胡编？
 
@@ -119,7 +120,7 @@ A：GitHub API 适合快速获取仓库元信息、README 和远程文件树；g
 
 ### Q11：系统怎么判断一个仓库是干什么的？
 
-A：项目用途分析是确定性模块，不依赖 LLM。它会优先读取 GitHub API description、README 标题和开头段落、仓库 topics、`package.json` 或 `pyproject.toml` 描述，再结合技术栈和架构模式判断项目类型、目标用户和置信度。Dashboard 会展示证据来源，用户输入链接后第一屏就能看到“这个仓库是做什么的”。
+A：项目用途分析先使用确定性模块读取 GitHub API description、README 标题和开头段落、仓库 topics、`package.json` 或 `pyproject.toml` 描述，再结合技术栈和架构模式生成基础判断；启用 Ollama 时，Overview Agent 只基于这些受控证据补充语义解释。Dashboard 会展示证据来源，用户输入链接后第一屏就能看到“这个仓库是做什么的”。
 
 ## 后续优化方向
 

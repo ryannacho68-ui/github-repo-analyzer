@@ -1,5 +1,6 @@
 from src.agents.comparison_agent import ComparisonAgent
 from src.agents.base_agent import BaseAgent
+from src.agents.architecture_agent import ArchitectureAgent
 from src.agents.summary_agent import DIMENSIONS
 from src.agents.summary_agent import SummaryAgent
 from src.analysis_models import AgentResult, RepositoryContext
@@ -24,6 +25,30 @@ class FakeLLMClient:
             "strengths": [{"name": "结构清晰", "evidence": "目录分层"}],
             "issues": [{"name": "测试不足", "evidence": "测试评分偏低"}],
             "improvement_suggestions": [{"action": "补充测试"}],
+            "_llm_meta": {
+                "llm_used": True,
+                "model": "fake-llm",
+                "status": "ok",
+                "error_message": "",
+            },
+        }
+
+
+class FakeArchitectureLLMClient:
+    def __init__(self):
+        self.called = False
+
+    def generate_json(self, system_prompt, user_prompt, fallback):
+        self.called = True
+        return {
+            **fallback,
+            "pattern": "LLM 增强的分层架构",
+            "architecture_summary": "基于 src 与 tests 的分层库式项目。",
+            "confidence": 0.83,
+            "modules": [{"name": "src", "role": "核心源码"}, {"name": "tests", "role": "测试验证"}],
+            "rationale": ["检测到 src 与 tests 目录。"],
+            "style_tags": ["分层", "可测试"],
+            "suggestions": ["补充架构图。"],
             "_llm_meta": {
                 "llm_used": True,
                 "model": "fake-llm",
@@ -117,3 +142,30 @@ def test_summary_agent_handles_dict_evidence_and_uses_llm(tmp_path):
     assert result.llm_used is True
     assert result.status == "ok"
     assert result.score > 0
+
+
+def test_architecture_agent_uses_llm_after_rule_analysis(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "src").mkdir(parents=True)
+    (repo / "tests").mkdir()
+    (repo / "src" / "app.py").write_text("def run():\n    return True\n", encoding="utf-8")
+    (repo / "tests" / "test_app.py").write_text("def test_run():\n    assert True\n", encoding="utf-8")
+    context = RepositoryContext(
+        repo_name="repo",
+        owner="demo",
+        url="https://github.com/demo/repo",
+        local_path=str(repo),
+    )
+    client = FakeArchitectureLLMClient()
+    shared = {
+        "llm_client": client,
+        "tech_stack": {"main_language": "Python", "frameworks": [], "tools": []},
+    }
+
+    result = ArchitectureAgent().analyze(context, shared)
+
+    assert client.called is True
+    assert result.llm_used is True
+    assert result.status == "ok"
+    assert result.raw_output["pattern"] == "LLM 增强的分层架构"
+    assert shared["architecture"]["modules"][0]["name"] == "src"
