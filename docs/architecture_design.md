@@ -46,10 +46,10 @@ flowchart TB
 | Code Quality Analyzer | `src/code_quality_analyzer.py` | 使用 Python AST 统计函数、类、长函数、长文件、TODO 和测试 |
 | Doc Checker | `src/doc_checker.py` | 检查 README、安装、运行、示例、LICENSE、依赖文件和 `.gitignore` |
 | Security Checker | `src/security_checker.py` | 检查 `.env`、疑似凭据、虚拟环境、缓存目录和大文件 |
-| Agent Orchestrator | `src/agent_orchestrator.py` | 组织架构、技术栈、质量、文档和汇总 Agent 的结构化输出 |
+| Orchestrator | `src/orchestrator.py` | 组织 GitHub API、仓库克隆、上下文构建、各 Agent 执行和仓库对比 |
 | RAG QA | `src/rag_qa.py` | 检索 README/配置/代码片段，并回答仓库相关问题 |
 | LLM Reporter | `src/llm_reporter.py` | 调用 Ollama 生成 Markdown 报告，失败时退化为模板报告 |
-| Report Exporter | `src/report_exporter.py` | 保存 Markdown 报告到 `reports/` |
+| Report Generator | `src/report_generator.py` | 生成 Markdown / JSON 报告，并保存报告与 Agent 日志到 `outputs/` |
 
 ## Multi-Agent 设计
 

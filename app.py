@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import escape
 import json
 from pathlib import Path
 
@@ -52,6 +53,7 @@ def main() -> None:
     single_tab, compare_tab, qa_tab = st.tabs(["单仓库分析", "双仓库对比", "仓库代码问答"])
 
     with single_tab:
+        is_analyzing = bool(st.session_state.get("single_analysis_running"))
         with st.form("analysis_form", clear_on_submit=False, enter_to_submit=True, border=False):
             input_col, refresh_col, llm_col, model_col, button_col = st.columns([4.8, 1.1, 1.2, 1.7, 1.2])
             with input_col:
@@ -68,22 +70,52 @@ def main() -> None:
             with model_col:
                 model = _model_selector(available_models)
             with button_col:
-                analyze_clicked = st.form_submit_button("开始分析", type="primary", use_container_width=True)
+                analyze_clicked = st.form_submit_button(
+                    "正在分析中..." if is_analyzing else "开始分析",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=is_analyzing,
+                )
 
         if analyze_clicked:
             submitted_repo_url = repo_url_draft.strip()
             if not submitted_repo_url:
                 st.warning("请输入 GitHub 仓库 URL。")
             else:
-                try:
-                    st.session_state["selected_model"] = model
-                    st.session_state["selected_use_llm"] = use_llm
-                    with st.spinner("正在分析中..."):
-                        st.session_state["analysis_result"] = run_pipeline(submitted_repo_url, refresh, use_llm, model)
-                except RepoLoadError as exc:
-                    st.error(str(exc))
-                except Exception as exc:
-                    st.error(f"分析过程中出现异常：{exc}")
+                st.session_state.pop("single_analysis_error", None)
+                st.session_state["single_pending_job"] = {
+                    "repo_url": submitted_repo_url,
+                    "refresh": refresh,
+                    "use_llm": use_llm,
+                    "model": model,
+                }
+                st.session_state["single_analysis_running"] = True
+                st.rerun()
+
+        if st.session_state.get("single_analysis_running"):
+            job = st.session_state.get("single_pending_job") or {}
+            try:
+                st.session_state["selected_model"] = job.get("model") or model
+                st.session_state["selected_use_llm"] = bool(job.get("use_llm", use_llm))
+                with st.spinner("正在分析中..."):
+                    st.session_state["analysis_result"] = run_pipeline(
+                        job.get("repo_url", ""),
+                        bool(job.get("refresh", False)),
+                        bool(job.get("use_llm", True)),
+                        job.get("model") or model,
+                    )
+                st.session_state.pop("single_analysis_error", None)
+            except RepoLoadError as exc:
+                st.session_state["single_analysis_error"] = str(exc)
+            except Exception as exc:
+                st.session_state["single_analysis_error"] = f"分析过程中出现异常：{exc}"
+            finally:
+                st.session_state["single_analysis_running"] = False
+                st.session_state.pop("single_pending_job", None)
+                st.rerun()
+
+        if st.session_state.get("single_analysis_error"):
+            st.error(st.session_state["single_analysis_error"])
 
         result = st.session_state.get("analysis_result")
         if result:
@@ -150,7 +182,8 @@ def render_dashboard(result: dict) -> None:
     kpi1.metric("文件总数", file_tree["total_files"])
     kpi2.metric("代码行数", file_tree.get("total_code_lines", 0))
     kpi3.metric("主要语言", tech_stack["main_language"])
-    kpi4.metric("项目类型", overview.get("project_type", "Unknown"))
+    with kpi4:
+        _scroll_metric("项目类型", overview.get("project_type", "Unknown"))
     kpi5.metric("代码质量", f'{quality["score"]}/100')
     kpi6.metric("风险项", len(security["risks"]))
 
@@ -232,7 +265,8 @@ def render_dashboard(result: dict) -> None:
         st.markdown("### 架构分析")
         with st.container(border=True):
             arch_cols = st.columns([1.2, 0.8])
-            arch_cols[0].metric("结构模式", architecture.get("pattern", "Unknown"))
+            with arch_cols[0]:
+                _scroll_metric("结构模式", architecture.get("pattern", "Unknown"))
             arch_cols[1].metric("置信度", f"{round((architecture.get('confidence', 0) or 0) * 100)}%")
             _badge_block(architecture.get("style_tags") or ["轻量仓库"])
             if architecture.get("entry_points"):
@@ -244,28 +278,24 @@ def render_dashboard(result: dict) -> None:
 
         st.markdown("### 文件树结构")
         with st.container(border=True):
-            st.code(file_tree.get("tree", ""), language="text")
+            _scroll_text_block(file_tree.get("tree", ""), height=360)
 
         st.markdown("### 目录分析")
         dir_df = pd.DataFrame(file_tree.get("directory_summary") or [])
         if not dir_df.empty:
-            st.dataframe(dir_df, use_container_width=True, hide_index=True)
+            st.dataframe(dir_df, use_container_width=True, hide_index=True, height=240)
         else:
             st.info("未生成目录统计。")
 
         st.markdown("### 最大文件 Top 10")
         largest_df = pd.DataFrame(file_tree.get("largest_files") or [])
         if not largest_df.empty:
-            st.dataframe(largest_df[["path", "size_kb", "category"]], use_container_width=True, hide_index=True)
+            st.dataframe(largest_df[["path", "size_kb", "category"]], use_container_width=True, hide_index=True, height=220)
 
         st.markdown("### 风险检测")
         risks = security.get("risks") or []
         if risks:
-            st.dataframe(
-                pd.DataFrame(risks)[["severity", "category", "path", "message"]],
-                use_container_width=True,
-                hide_index=True,
-            )
+            _risk_list(risks)
         else:
             st.success("未发现明显安全与工程规范风险。")
 
@@ -325,9 +355,9 @@ def render_overview_band(result: dict) -> None:
         st.markdown(
             f"""
             <div class="glass-card overview-card">
-              <div class="card-title">{overview.get('project_type', '通用代码仓库')}</div>
-              <div class="overview-purpose">{overview.get('purpose', '暂未识别到明确项目用途。')}</div>
-              <div class="muted">目标用户：{overview.get('target_users', '开发者')}</div>
+              <div class="card-title scroll-title">{_html(overview.get('project_type', '通用代码仓库'))}</div>
+              <div class="overview-purpose">{_html(overview.get('purpose', '暂未识别到明确项目用途。'))}</div>
+              <div class="muted">目标用户：{_html(overview.get('target_users', '开发者'))}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -399,7 +429,7 @@ def render_dimension_score_panel(result: dict) -> None:
     score_df = pd.DataFrame(
         [{"分析维度": key, "得分": value} for key, value in scores.items()]
     )
-    st.dataframe(score_df, use_container_width=True, hide_index=True)
+    st.dataframe(score_df, use_container_width=True, hide_index=True, height=285)
     summary = result.get("final_summary") or {}
     with st.expander("主要优点", expanded=False):
         for item in summary.get("strengths") or ["暂无明显优势。"]:
@@ -410,6 +440,7 @@ def render_dimension_score_panel(result: dict) -> None:
 
 
 def render_compare_workspace() -> None:
+    is_comparing = bool(st.session_state.get("comparison_running"))
     with st.form("compare_form", clear_on_submit=False, enter_to_submit=True, border=False):
         col_a, col_b, refresh_col, button_col = st.columns([3.2, 3.2, 1.1, 1.2])
         with col_a:
@@ -429,19 +460,47 @@ def render_compare_workspace() -> None:
         with refresh_col:
             refresh = st.toggle("重新克隆", value=False, key="compare_refresh")
         with button_col:
-            compare_clicked = st.form_submit_button("开始对比", type="primary", use_container_width=True)
+            compare_clicked = st.form_submit_button(
+                "正在对比中..." if is_comparing else "开始对比",
+                type="primary",
+                use_container_width=True,
+                disabled=is_comparing,
+            )
 
     if compare_clicked:
         if not repo_a.strip() or not repo_b.strip():
             st.warning("请输入两个 GitHub 仓库 URL。")
         else:
-            try:
-                with st.spinner("正在对比分析中..."):
-                    st.session_state["comparison_result"] = run_compare_pipeline(repo_a.strip(), repo_b.strip(), refresh)
-            except RepoLoadError as exc:
-                st.error(str(exc))
-            except Exception as exc:
-                st.error(f"对比过程中出现异常：{exc}")
+            st.session_state.pop("comparison_error", None)
+            st.session_state["comparison_pending_job"] = {
+                "repo_a": repo_a.strip(),
+                "repo_b": repo_b.strip(),
+                "refresh": refresh,
+            }
+            st.session_state["comparison_running"] = True
+            st.rerun()
+
+    if st.session_state.get("comparison_running"):
+        job = st.session_state.get("comparison_pending_job") or {}
+        try:
+            with st.spinner("正在对比分析中..."):
+                st.session_state["comparison_result"] = run_compare_pipeline(
+                    job.get("repo_a", ""),
+                    job.get("repo_b", ""),
+                    bool(job.get("refresh", False)),
+                )
+            st.session_state.pop("comparison_error", None)
+        except RepoLoadError as exc:
+            st.session_state["comparison_error"] = str(exc)
+        except Exception as exc:
+            st.session_state["comparison_error"] = f"对比过程中出现异常：{exc}"
+        finally:
+            st.session_state["comparison_running"] = False
+            st.session_state.pop("comparison_pending_job", None)
+            st.rerun()
+
+    if st.session_state.get("comparison_error"):
+        st.error(st.session_state["comparison_error"])
 
     result = st.session_state.get("comparison_result")
     if result:
@@ -755,8 +814,50 @@ def _comparison_radar_figure(rows: list[dict]) -> go.Figure:
 
 
 def _badge_block(items: list[str]) -> None:
-    badges = "".join(f'<span class="badge">{item}</span>' for item in items[:16])
+    badges = "".join(f'<span class="badge">{_html(item)}</span>' for item in items[:16])
     st.markdown(f'<div class="badge-wrap">{badges}</div>', unsafe_allow_html=True)
+
+
+def _html(value: object) -> str:
+    return escape(str(value or ""))
+
+
+def _scroll_metric(label: str, value: object) -> None:
+    html = (
+        '<div class="scroll-metric">'
+        f'<div class="metric-label">{_html(label)}</div>'
+        f'<div class="metric-value-x">{_html(value)}</div>'
+        "</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def _scroll_text_block(text: str, height: int = 320) -> None:
+    st.markdown(
+        f'<pre class="tree-scroll" style="max-height:{height}px;">{_html(text or "暂无文件树。")}</pre>',
+        unsafe_allow_html=True,
+    )
+
+
+def _risk_list(risks: list[dict], height: int = 330) -> None:
+    severity_class = {"高": "risk-high", "中": "risk-mid", "低": "risk-low"}
+    items = []
+    for risk in risks[:80]:
+        severity = risk.get("severity", "低")
+        items.append(
+            '<div class="risk-item">'
+            '<div class="risk-row">'
+            f'<span class="risk-badge {severity_class.get(severity, "risk-low")}">{_html(severity)}</span>'
+            f'<span class="risk-category">{_html(risk.get("category", "风险"))}</span>'
+            "</div>"
+            f'<div class="risk-path">{_html(risk.get("path", ""))}</div>'
+            f'<div class="risk-message">{_html(risk.get("message", ""))}</div>'
+            "</div>"
+        )
+    st.markdown(
+        f'<div class="risk-scroll" style="max-height:{height}px;">{"".join(items)}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def _ensure_project_dirs() -> None:
@@ -850,6 +951,89 @@ def _inject_css() -> None:
             font-size: 0.88rem;
         }
         .mini-grid strong { color: #f8fafc; }
+        .scroll-title {
+            display: block;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            padding-bottom: 0.15rem;
+        }
+        .scroll-metric {
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(15, 23, 42, 0.7);
+            border-radius: 8px;
+            padding: 0.75rem 0.85rem;
+            min-height: 96px;
+        }
+        .metric-label {
+            color: #bfdbfe;
+            font-size: 0.88rem;
+            margin-bottom: 0.5rem;
+        }
+        .metric-value-x {
+            color: #f8fafc;
+            font-size: 1.42rem;
+            font-weight: 700;
+            line-height: 1.25;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            padding-bottom: 0.2rem;
+        }
+        .tree-scroll {
+            margin: 0;
+            padding: 0.85rem;
+            border-radius: 8px;
+            background: rgba(2, 6, 23, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            color: #dbeafe;
+            font-size: 0.82rem;
+            line-height: 1.45;
+            overflow-y: auto;
+            overflow-x: hidden;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .risk-scroll {
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 8px;
+            background: rgba(15, 23, 42, 0.48);
+            padding: 0.65rem;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .risk-item {
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+            padding: 0.65rem 0.2rem;
+        }
+        .risk-item:last-child { border-bottom: none; }
+        .risk-row { display: flex; gap: 0.45rem; align-items: center; margin-bottom: 0.35rem; }
+        .risk-badge {
+            border-radius: 8px;
+            padding: 0.16rem 0.44rem;
+            font-size: 0.74rem;
+            font-weight: 800;
+            color: #0f172a;
+            flex: 0 0 auto;
+        }
+        .risk-high { background: #fb7185; }
+        .risk-mid { background: #fbbf24; }
+        .risk-low { background: #94a3b8; }
+        .risk-category { color: #e0f2fe; font-weight: 700; font-size: 0.86rem; }
+        .risk-path {
+            color: #93c5fd;
+            font-size: 0.78rem;
+            word-break: break-all;
+            margin-bottom: 0.25rem;
+        }
+        .risk-message {
+            color: #cbd5e1;
+            font-size: 0.86rem;
+            line-height: 1.45;
+            word-break: break-word;
+        }
         .section-gap { height: 0.7rem; }
         div[data-testid="stMetric"] {
             border: 1px solid rgba(148, 163, 184, 0.22);
@@ -859,6 +1043,13 @@ def _inject_css() -> None:
         }
         div[data-testid="stMetricValue"] { color: #f8fafc; }
         div[data-testid="stMetricLabel"] { color: #bfdbfe; }
+        button:disabled, button[disabled] {
+            background: rgba(71, 85, 105, 0.72) !important;
+            color: #cbd5e1 !important;
+            border-color: rgba(148, 163, 184, 0.28) !important;
+            cursor: not-allowed !important;
+            opacity: 0.75 !important;
+        }
         div[data-testid="stExpander"], div[data-testid="stVerticalBlockBorderWrapper"] {
             border-color: rgba(148, 163, 184, 0.22) !important;
             background: rgba(15, 23, 42, 0.48);

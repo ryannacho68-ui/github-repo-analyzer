@@ -29,6 +29,7 @@ reports/*
 outputs/*
 !outputs/.gitkeep
 !outputs/agent_logs/
+outputs/agent_logs/*
 !outputs/agent_logs/.gitkeep
 
 .DS_Store

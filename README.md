@@ -66,7 +66,10 @@ github-repo-analyzer/
 |   |-- code_quality_analyzer.py
 |   |-- doc_checker.py
 |   |-- security_checker.py
-|   |-- agent_orchestrator.py
+|   |-- dependency_checker.py
+|   |-- deploy_detector.py
+|   |-- security_scanner.py
+|   |-- test_detector.py
 |   |-- agents/
 |   |   |-- base_agent.py
 |   |   |-- overview_agent.py
@@ -78,10 +81,8 @@ github-repo-analyzer/
 |   |   |-- risk_agent.py
 |   |   |-- summary_agent.py
 |   |   `-- comparison_agent.py
-|   |-- tools/
 |   |-- rag_qa.py
-|   |-- llm_reporter.py
-|   `-- report_exporter.py
+|   `-- llm_reporter.py
 |-- data/
 |   `-- analyzed_repos/
 |-- reports/
@@ -197,7 +198,7 @@ python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 
 `src/orchestrator.py` 负责调度完整流程。`src/context_builder.py` 先构建 `RepositoryContext`，收集 README、依赖文件、配置文件、测试文件、部署文件、源码抽样和 import 语句等事实。
 
-`src/tools/` 和根目录中的工具模块只负责提取事实、指标和证据，不直接生成最终结论。`src/agents/` 中每个 Agent 继承 `BaseAgent`，统一输出：
+`src/file_tree.py`、`src/tech_stack_detector.py`、`src/code_quality_analyzer.py` 等工具模块只负责提取事实、指标和证据，不直接生成最终结论。`src/agents/` 中每个 Agent 继承 `BaseAgent`，统一输出：
 
 ```text
 agent_name / summary / findings / evidence / score / suggestions / confidence / raw_output
