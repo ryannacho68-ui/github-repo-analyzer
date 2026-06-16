@@ -209,11 +209,14 @@ def generate_comparison_markdown(result: dict[str, Any]) -> str:
 
 def save_report_files(name: str, markdown: str, payload: dict[str, Any], outputs_dir: Path) -> dict[str, str]:
     outputs_dir = Path(outputs_dir)
-    outputs_dir.mkdir(parents=True, exist_ok=True)
+    reports_dir = outputs_dir / "reports"
+    json_dir = outputs_dir / "json"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    json_dir.mkdir(parents=True, exist_ok=True)
     safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", name or "analysis")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    md_path = outputs_dir / f"{safe}_{timestamp}.md"
-    json_path = outputs_dir / f"{safe}_{timestamp}.json"
+    md_path = reports_dir / f"{safe}_{timestamp}.md"
+    json_path = json_dir / f"{safe}_{timestamp}.json"
     md_path.write_text(markdown, encoding="utf-8")
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"markdown": str(md_path), "json": str(json_path)}

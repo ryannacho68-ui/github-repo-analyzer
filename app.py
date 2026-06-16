@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.github_api_client import fetch_github_api_snapshot
-from src.llm_reporter import DEFAULT_MODEL, generate_report, list_available_models
+from src.llm_reporter import DEFAULT_MODEL, list_available_models
 from src.orchestrator import analyze_repository, compare_repositories
 from src.rag_qa import answer_repository_question
 from src.repo_loader import RepoLoadError, clone_or_use_cache
@@ -137,32 +137,43 @@ def main() -> None:
 def run_pipeline(repo_url: str, refresh: bool, use_llm: bool, model: str) -> dict:
     progress = st.progress(0)
     status = st.empty()
+
     def update(message: str, percent: int) -> None:
         status.info(message)
         progress.progress(percent)
 
-    analysis = analyze_repository(repo_url, ANALYZED_REPOS_DIR, refresh=refresh, progress=update)
+    analysis = analyze_repository(
+        repo_url,
+        ANALYZED_REPOS_DIR,
+        refresh=refresh,
+        use_llm=use_llm,
+        model=model,
+        progress=update,
+    )
     analysis["analysis_options"] = {"use_llm": use_llm, "model": model}
 
-    status.info("生成覆盖 10 个维度的结构化报告")
+    status.info("???? 10 ?????????")
     structured_report = generate_repository_markdown(analysis)
-    report_result = generate_report(analysis, model=model, use_llm=use_llm)
-    if report_result["mode"] == "ollama":
-        analysis["report"] = f"{report_result['report']}\n\n---\n\n{structured_report}"
+    summary_markdown = (analysis.get("final_summary") or {}).get("markdown_report") or analysis.get("markdown_report")
+    if summary_markdown and summary_markdown != structured_report:
+        analysis["report"] = f"{summary_markdown}\n\n---\n\n{structured_report}"
+        report_mode = "summary-agent-llm" if use_llm else "summary-agent-template"
+        report_message = "?? Summary Agent ???????????? 10 ????????"
     else:
         analysis["report"] = structured_report
+        report_mode = "template"
+        report_message = "??? 10 ??????????"
     analysis["report_meta"] = {
-        "mode": report_result["mode"],
-        "model": report_result["model"],
-        "message": f"已生成 10 维度结构化报告。{report_result['message']}",
+        "mode": report_mode,
+        "model": model if use_llm else None,
+        "message": report_message,
     }
     repo = analysis.get("repo_info") or {}
     log_name = f"{repo.get('owner', 'repo')}_{repo.get('name', 'analysis')}"
     analysis["agent_log_path"] = save_agent_logs(log_name, analysis.get("agent_logs") or [], OUTPUTS_DIR)
     progress.progress(100)
-    status.success("分析完成")
+    status.success("????")
     return analysis
-
 
 def render_dashboard(result: dict) -> None:
     repo = result["repo_info"]
@@ -442,26 +453,28 @@ def render_dimension_score_panel(result: dict) -> None:
 def render_compare_workspace() -> None:
     is_comparing = bool(st.session_state.get("comparison_running"))
     with st.form("compare_form", clear_on_submit=False, enter_to_submit=True, border=False):
-        col_a, col_b, refresh_col, button_col = st.columns([3.2, 3.2, 1.1, 1.2])
+        col_a, col_b, refresh_col, llm_col, button_col = st.columns([3.0, 3.0, 1.0, 0.9, 1.2])
         with col_a:
             repo_a = st.text_input(
-                "仓库 A",
+                "?? A",
                 placeholder="https://github.com/pallets/flask",
                 label_visibility="collapsed",
                 key="compare_repo_a",
             )
         with col_b:
             repo_b = st.text_input(
-                "仓库 B",
+                "?? B",
                 placeholder="https://github.com/fastapi/fastapi",
                 label_visibility="collapsed",
                 key="compare_repo_b",
             )
         with refresh_col:
-            refresh = st.toggle("重新克隆", value=False, key="compare_refresh")
+            refresh = st.toggle("????", value=False, key="compare_refresh")
+        with llm_col:
+            use_llm = st.toggle("Ollama", value=True, key="compare_llm")
         with button_col:
             compare_clicked = st.form_submit_button(
-                "正在对比中..." if is_comparing else "开始对比",
+                "?????..." if is_comparing else "????",
                 type="primary",
                 use_container_width=True,
                 disabled=is_comparing,
@@ -469,13 +482,15 @@ def render_compare_workspace() -> None:
 
     if compare_clicked:
         if not repo_a.strip() or not repo_b.strip():
-            st.warning("请输入两个 GitHub 仓库 URL。")
+            st.warning("????? GitHub ?? URL?")
         else:
             st.session_state.pop("comparison_error", None)
             st.session_state["comparison_pending_job"] = {
                 "repo_a": repo_a.strip(),
                 "repo_b": repo_b.strip(),
                 "refresh": refresh,
+                "use_llm": use_llm,
+                "model": st.session_state.get("selected_model") or DEFAULT_MODEL,
             }
             st.session_state["comparison_running"] = True
             st.rerun()
@@ -483,17 +498,19 @@ def render_compare_workspace() -> None:
     if st.session_state.get("comparison_running"):
         job = st.session_state.get("comparison_pending_job") or {}
         try:
-            with st.spinner("正在对比分析中..."):
+            with st.spinner("???????..."):
                 st.session_state["comparison_result"] = run_compare_pipeline(
                     job.get("repo_a", ""),
                     job.get("repo_b", ""),
                     bool(job.get("refresh", False)),
+                    bool(job.get("use_llm", True)),
+                    job.get("model") or DEFAULT_MODEL,
                 )
             st.session_state.pop("comparison_error", None)
         except RepoLoadError as exc:
             st.session_state["comparison_error"] = str(exc)
         except Exception as exc:
-            st.session_state["comparison_error"] = f"对比过程中出现异常：{exc}"
+            st.session_state["comparison_error"] = f"??????????{exc}"
         finally:
             st.session_state["comparison_running"] = False
             st.session_state.pop("comparison_pending_job", None)
@@ -509,15 +526,15 @@ def render_compare_workspace() -> None:
         st.markdown(
             """
             <div class="empty-panel">
-              <div class="empty-title">输入两个公开 GitHub 仓库 URL 后开始对比</div>
-              <div class="muted">系统会分别运行单仓库 Multi-Agent 分析，再由 Comparison Agent 进行 10 个维度横向对比。</div>
+              <div class="empty-title">?????? GitHub ?? URL ?????</div>
+              <div class="muted">?????????? Multi-Agent ????? Comparison Agent ?? 10 ????????</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
 
-def run_compare_pipeline(repo_a: str, repo_b: str, refresh: bool) -> dict:
+def run_compare_pipeline(repo_a: str, repo_b: str, refresh: bool, use_llm: bool, model: str) -> dict:
     progress = st.progress(0)
     status = st.empty()
 
@@ -525,20 +542,28 @@ def run_compare_pipeline(repo_a: str, repo_b: str, refresh: bool) -> dict:
         status.info(message)
         progress.progress(percent)
 
-    result = compare_repositories(repo_a, repo_b, ANALYZED_REPOS_DIR, refresh=refresh, progress=update)
-    report = generate_comparison_markdown(result)
+    result = compare_repositories(
+        repo_a,
+        repo_b,
+        ANALYZED_REPOS_DIR,
+        refresh=refresh,
+        use_llm=use_llm,
+        model=model,
+        progress=update,
+    )
+    comparison = result.get("comparison") or {}
+    report = comparison.get("markdown_report") or generate_comparison_markdown(result)
     result["report"] = report
     result["report_meta"] = {
-        "mode": "comparison-template",
-        "message": "已生成双仓库 10 维度对比报告。",
+        "mode": "comparison-agent-llm" if use_llm else "comparison-template",
+        "model": model if use_llm else None,
+        "message": "?????? 10 ???????",
     }
-    comparison = result.get("comparison") or {}
     name = f"compare_{(comparison.get('repo_a') or {}).get('name', 'repo_a')}_{(comparison.get('repo_b') or {}).get('name', 'repo_b')}"
     result["agent_log_path"] = save_agent_logs(name, result.get("agent_logs") or [], OUTPUTS_DIR)
     progress.progress(100)
-    status.success("对比完成")
+    status.success("????")
     return result
-
 
 def render_comparison_dashboard(result: dict) -> None:
     comparison = result.get("comparison") or {}

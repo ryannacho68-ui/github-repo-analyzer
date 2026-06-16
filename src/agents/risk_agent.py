@@ -39,4 +39,5 @@ class RiskAgent(BaseAgent):
             suggestions=[item for item in suggestions if item],
             confidence=score_to_confidence(score),
             raw_output={"dependency_health": dependency_health, "risks": risks},
+            tools_used=["dependency_checker.py", "security_scanner.py"],
         )

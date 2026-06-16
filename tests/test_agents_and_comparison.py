@@ -17,7 +17,7 @@ def test_dimension_contract_contains_ten_dimensions():
     ]
 
 
-def test_comparison_agent_compares_dimension_scores():
+def test_comparison_agent_compares_dimension_scores_without_llm():
     repo_a = {
         "repo_info": {"name": "repo-a", "owner": "demo", "web_url": "https://github.com/demo/repo-a"},
         "project_overview": {"project_type": "Web 应用"},
@@ -37,3 +37,4 @@ def test_comparison_agent_compares_dimension_scores():
     assert result["winner_by_dimension"]["项目概览"].startswith("A:")
     assert result["winner_by_dimension"]["部署方式"].startswith("B:")
     assert "learning" in result["scenario_recommendations"]
+    assert result["agent_logs"][0]["llm_used"] is False

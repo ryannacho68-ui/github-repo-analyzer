@@ -28,6 +28,12 @@ reports/*
 !reports/.gitkeep
 outputs/*
 !outputs/.gitkeep
+!outputs/reports/
+outputs/reports/*
+!outputs/reports/.gitkeep
+!outputs/json/
+outputs/json/*
+!outputs/json/.gitkeep
 !outputs/agent_logs/
 outputs/agent_logs/*
 !outputs/agent_logs/.gitkeep

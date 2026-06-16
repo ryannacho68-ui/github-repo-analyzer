@@ -22,6 +22,7 @@ class RepositoryContext:
     url: str
     local_path: str
     readme_text: str = ""
+    readme_summary: str = ""
     file_tree: dict[str, Any] = field(default_factory=dict)
     dependency_files: dict[str, str] = field(default_factory=dict)
     source_samples: list[dict[str, Any]] = field(default_factory=list)
@@ -32,6 +33,7 @@ class RepositoryContext:
     code_metrics: dict[str, Any] = field(default_factory=dict)
     import_summary: dict[str, Any] = field(default_factory=dict)
     possible_entry_files: list[str] = field(default_factory=list)
+    entrypoint_candidates: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return _json_ready(asdict(self))
@@ -47,6 +49,11 @@ class AgentResult:
     suggestions: list[str]
     confidence: str
     raw_output: dict[str, Any] = field(default_factory=dict)
+    llm_used: bool = False
+    tools_used: list[str] = field(default_factory=list)
+    elapsed_seconds: float = 0.0
+    status: str = "done"
+    error_message: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return _json_ready(asdict(self))
@@ -66,6 +73,8 @@ class RepositoryAnalysisResult:
     dimension_scores: dict[str, float]
     final_summary: dict[str, Any]
     agent_logs: list[dict[str, Any]]
+    markdown_report: str = ""
+    json_report_path: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return _json_ready(asdict(self))
@@ -85,6 +94,8 @@ class ComparisonResult:
     risk_comparison: dict[str, Any]
     scenario_recommendations: dict[str, str]
     suggestions: dict[str, list[str]]
+    markdown_report: str = ""
+    json_report_path: str = ""
     agent_logs: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:

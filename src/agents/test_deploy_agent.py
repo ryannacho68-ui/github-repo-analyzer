@@ -39,4 +39,5 @@ class TestDeployAgent(BaseAgent):
             suggestions=suggestions,
             confidence=score_to_confidence(score),
             raw_output=test_deploy,
+            tools_used=["test_detector.py", "deploy_detector.py"],
         )

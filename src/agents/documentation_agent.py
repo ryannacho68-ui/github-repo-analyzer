@@ -41,6 +41,7 @@ class DocumentationAgent(BaseAgent):
             suggestions=suggestions,
             confidence=score_to_confidence(score),
             raw_output=docs,
+            tools_used=["doc_checker.py", "GitHub README API"],
         )
 
 

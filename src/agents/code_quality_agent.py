@@ -15,6 +15,20 @@ class CodeQualityAgent(BaseAgent):
         quality = analyze_code_quality(context.local_path)
         shared["code_quality"] = quality
         py = quality.get("python") or {}
+        quality["code_metrics"] = py
+        quality["long_functions"] = py.get("long_functions") or []
+        quality["large_files"] = quality.get("long_files") or []
+        quality["complexity_summary"] = {
+            "method": "????????????????????????AST ????? TODO ????????????",
+            "average_function_length": py.get("average_function_length", 0),
+            "long_function_count": len(py.get("long_functions") or []),
+        }
+        quality["naming_issues"] = []
+        quality["todo_count"] = len(quality.get("todo_markers") or [])
+        quality["exception_handling_summary"] = {
+            "method": "?????????????????????? bare except ??????",
+            "parse_errors": py.get("parse_errors") or [],
+        }
         score = round((quality.get("score", 0) or 0) / 10, 1)
         evidence = [
             {"type": "python_ast_metrics", "value": py},
@@ -36,4 +50,5 @@ class CodeQualityAgent(BaseAgent):
             suggestions=suggestions or ["代码质量暂无明显扣分项，可继续补充复杂度和覆盖率检测。"],
             confidence=score_to_confidence(score),
             raw_output=quality,
+            tools_used=["code_quality_analyzer.py", "Python ast"],
         )

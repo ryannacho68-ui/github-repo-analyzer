@@ -44,4 +44,5 @@ class ArchitectureAgent(BaseAgent):
             suggestions=suggestions or ["架构结构较清晰，可补充架构图和核心调用流程。"],
             confidence=score_to_confidence(score),
             raw_output=architecture,
+            tools_used=["file_tree.py", "architecture_analyzer.py"],
         )

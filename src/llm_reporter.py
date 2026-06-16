@@ -4,10 +4,9 @@ import json
 from datetime import datetime
 from typing import Any
 
-import requests
+from .llm_client import DEFAULT_BASE_URL, DEFAULT_MODEL, OllamaClient
 
 
-DEFAULT_MODEL = "qwen2.5:7b"
 DEFAULT_ENDPOINT = "http://localhost:11434/api/generate"
 DEFAULT_TAGS_ENDPOINT = "http://localhost:11434/api/tags"
 
@@ -19,7 +18,7 @@ def generate_report(
     endpoint: str = DEFAULT_ENDPOINT,
     timeout: int = 90,
 ) -> dict:
-    """Generate a Chinese Markdown report from deterministic analysis results."""
+    """Backward-compatible report generator using the shared OllamaClient."""
     compact_context = _compact_analysis(analysis)
     requested_model = model or DEFAULT_MODEL
     if not use_llm:
@@ -27,60 +26,47 @@ def generate_report(
             "report": _template_report(compact_context),
             "mode": "template",
             "model": None,
-            "message": "未启用 LLM，已生成模板报告。",
+            "message": "??? LLM?????????",
         }
 
-    available_models = list_available_models(
-        tags_endpoint=_tags_endpoint_from_generate_endpoint(endpoint),
-        timeout=3,
+    client = OllamaClient(
+        model=requested_model,
+        base_url=_base_url_from_generate_endpoint(endpoint),
+        timeout=timeout,
+        enabled=use_llm,
     )
+    available_models = client.available_models()
     if available_models and requested_model not in available_models:
         return {
             "report": _template_report(compact_context),
             "mode": "template",
             "model": None,
             "message": (
-                f"Ollama 已运行，但未安装模型 {requested_model}。"
-                f"当前可用模型：{', '.join(available_models)}。"
-                f"请在页面选择可用模型，或运行：ollama pull {requested_model}"
+                f"Ollama ?????????? {requested_model}?"
+                f"???????{', '.join(available_models)}?"
+                f"???????????????ollama pull {requested_model}"
             ),
         }
 
-    prompt = _build_prompt(compact_context)
-    try:
-        response = requests.post(
-            endpoint,
-            json={
-                "model": requested_model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {"temperature": 0.2},
-            },
-            timeout=timeout,
-        )
-        if response.status_code == 404:
-            raise RuntimeError(
-                f"Ollama API 返回 404，通常表示模型 {requested_model} 未安装。"
-                f"可运行：ollama pull {requested_model}"
-            )
-        response.raise_for_status()
-        data = response.json()
-        report = (data.get("response") or "").strip()
-        if not report:
-            raise ValueError("Ollama returned an empty response.")
+    report = client.generate_text(
+        system_prompt="???????????????????????????????",
+        user_prompt=_build_prompt(compact_context),
+        fallback="",
+    )
+    meta = client.last_call_log or {}
+    if report:
         return {
             "report": report,
             "mode": "ollama",
             "model": requested_model,
-            "message": "已通过 Ollama 生成 AI 报告。",
+            "message": "??? Ollama ?? AI ???",
         }
-    except Exception as exc:
-        return {
-            "report": _template_report(compact_context),
-            "mode": "template",
-            "model": None,
-            "message": f"Ollama 不可用，已退化为模板报告：{exc}",
-        }
+    return {
+        "report": _template_report(compact_context),
+        "mode": "template",
+        "model": None,
+        "message": f"Ollama ?????????????{meta.get('error_message', 'unknown error')}",
+    }
 
 
 def list_available_models(
@@ -88,25 +74,25 @@ def list_available_models(
     timeout: int = 2,
 ) -> list[str]:
     """Return installed Ollama model names, or an empty list when unavailable."""
-    try:
-        response = requests.get(tags_endpoint, timeout=timeout)
-        response.raise_for_status()
-        data = response.json()
-    except Exception:
-        return []
-    models = data.get("models") or []
-    names = []
-    for model in models:
-        name = model.get("name") or model.get("model")
-        if name:
-            names.append(name)
-    return sorted(set(names), key=str.lower)
+    return OllamaClient(base_url=_base_url_from_tags_endpoint(tags_endpoint), timeout=timeout).available_models()
 
 
 def _tags_endpoint_from_generate_endpoint(endpoint: str) -> str:
     if endpoint.endswith("/api/generate"):
         return endpoint[: -len("/api/generate")] + "/api/tags"
     return DEFAULT_TAGS_ENDPOINT
+
+
+def _base_url_from_generate_endpoint(endpoint: str) -> str:
+    if endpoint.endswith("/api/generate"):
+        return endpoint[: -len("/api/generate")]
+    return DEFAULT_BASE_URL
+
+
+def _base_url_from_tags_endpoint(endpoint: str) -> str:
+    if endpoint.endswith("/api/tags"):
+        return endpoint[: -len("/api/tags")]
+    return DEFAULT_BASE_URL
 
 
 def _build_prompt(context: dict[str, Any]) -> str:

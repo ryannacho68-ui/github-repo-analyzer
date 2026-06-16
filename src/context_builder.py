@@ -74,6 +74,7 @@ def build_repository_context(repo_info: dict[str, Any], github_api: dict[str, An
         url=repo_info.get("web_url") or repo_info.get("clone_url") or "",
         local_path=str(repo_path),
         readme_text=readme_text[:40_000],
+        readme_summary=_summarize_text(readme_text),
         dependency_files=dependency_files,
         source_samples=source_samples,
         test_files=sorted(test_files)[:300],
@@ -81,7 +82,13 @@ def build_repository_context(repo_info: dict[str, Any], github_api: dict[str, An
         deploy_files=sorted(deploy_files)[:200],
         import_summary=import_summary,
         possible_entry_files=_possible_entry_files(repo_path),
+        entrypoint_candidates=_possible_entry_files(repo_path),
     )
+
+
+def _summarize_text(text: str, limit: int = 1800) -> str:
+    cleaned = " ".join((text or "").split())
+    return cleaned[:limit]
 
 
 def _readme_text(repo_path: Path) -> str:
