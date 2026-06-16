@@ -46,10 +46,12 @@ class SummaryAgent(BaseAgent):
         shared["dimension_scores"] = dimension_scores
         shared["final_summary"] = summary
         meta = summary.get("_llm_meta") or {}
+        strengths = _compact_text_list(summary.get("strengths"), 8) or ["暂无明确优势"]
+        issues = _compact_text_list(summary.get("issues") or summary.get("weaknesses"), 8) or ["暂无明确问题"]
         findings = [
             f"总体评分 {summary.get('overall_score', 0)}/10",
-            f"主要优势：{', '.join(summary.get('strengths') or ['暂无明确优势'])}",
-            f"主要问题：{', '.join(summary.get('issues') or summary.get('weaknesses') or ['暂无明确问题'])}",
+            f"主要优势：{', '.join(strengths)}",
+            f"主要问题：{', '.join(issues)}",
         ]
         evidence = summary.get("evidence_summary") or [
             {"type": "dimension_scores", "value": dimension_scores},
@@ -105,10 +107,10 @@ def _summary_prompt(
     compact_results = {
         name: {
             "summary": result.summary,
-            "findings": result.findings[:6],
-            "evidence": result.evidence[:6],
+            "findings": _compact_text_list(result.findings, 6),
+            "evidence": _compact_list(result.evidence, 6),
             "score": result.score,
-            "suggestions": result.suggestions[:6],
+            "suggestions": _compact_text_list(result.suggestions, 6),
             "confidence": result.confidence,
             "raw_output": _compact(result.raw_output),
         }
@@ -185,12 +187,16 @@ def _fallback_summary(
 
 def _normalize_summary(payload: dict[str, Any], fallback: dict[str, Any], dimension_scores: dict[str, float]) -> dict[str, Any]:
     summary = dict(fallback)
-    for key in ("final_summary", "strengths", "weaknesses", "issues", "suggestions", "improvement_suggestions", "evidence_summary"):
+    if payload.get("final_summary"):
+        summary["final_summary"] = _compact_text(payload["final_summary"])
+    for key in ("strengths", "weaknesses", "issues", "suggestions", "improvement_suggestions"):
         if payload.get(key):
-            summary[key] = payload[key]
+            summary[key] = _compact_text_list(payload[key], 16)
+    if payload.get("evidence_summary"):
+        summary["evidence_summary"] = _compact_list(payload["evidence_summary"], 20)
     summary["overall_score"] = _numeric(payload.get("overall_score"), fallback.get("overall_score", 0))
     summary["dimension_scores"] = dimension_scores
-    if payload.get("markdown_report"):
+    if isinstance(payload.get("markdown_report"), str) and payload.get("markdown_report").strip():
         summary["markdown_report"] = payload["markdown_report"]
     summary["_llm_meta"] = payload.get("_llm_meta") or {}
     return summary
@@ -263,14 +269,14 @@ def _issues(agent_results: dict[str, AgentResult], scores: dict[str, float]) -> 
     issues = [f"{dimension} 得分偏低（{score}/10）" for dimension, score in scores.items() if score < 6]
     for result in agent_results.values():
         if result.score < 6:
-            issues.extend(result.findings[:1])
+            issues.extend(_compact_text_list(result.findings, 1))
     return list(dict.fromkeys(issues))[:10]
 
 
 def _suggestions(agent_results: dict[str, AgentResult]) -> list[str]:
     suggestions = []
     for result in agent_results.values():
-        suggestions.extend(result.suggestions[:3])
+        suggestions.extend(_compact_text_list(result.suggestions, 3))
     return list(dict.fromkeys(suggestions))[:16]
 
 
@@ -313,6 +319,40 @@ def _compact(value: Any) -> Any:
     if isinstance(value, str):
         return value[:1200]
     return value
+
+
+def _compact_list(value: Any, limit: int) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        items: list[Any] = [{"type": key, "value": _compact(item)} for key, item in value.items()]
+    elif isinstance(value, (list, tuple, set)):
+        items = [_compact(item) for item in value]
+    else:
+        items = [_compact(value)]
+    return items[:limit]
+
+
+def _compact_text_list(value: Any, limit: int) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, dict):
+        items = [f"{key}: {_compact_text(item)}" for key, item in value.items()]
+    elif isinstance(value, (list, tuple, set)):
+        items = [_compact_text(item) for item in value]
+    else:
+        items = [_compact_text(value)]
+    return [item for item in items if item][:limit]
+
+
+def _compact_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value[:1200]
+    try:
+        text = json.dumps(_compact(value), ensure_ascii=False)
+    except TypeError:
+        text = str(value)
+    return text[:1200]
 
 
 def _numeric(value: Any, fallback: float) -> float:

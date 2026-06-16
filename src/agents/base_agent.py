@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from abc import ABC, abstractmethod
 from typing import Any
@@ -61,10 +62,10 @@ class BaseAgent(ABC):
     def build_result(
         self,
         summary: str,
-        findings: list[str],
-        evidence: list[dict[str, Any]],
+        findings: Any,
+        evidence: Any,
         score: float,
-        suggestions: list[str],
+        suggestions: Any,
         confidence: str = "medium",
         raw_output: dict[str, Any] | None = None,
         llm_used: bool = False,
@@ -75,10 +76,10 @@ class BaseAgent(ABC):
         return AgentResult(
             agent_name=self.name,
             summary=summary,
-            findings=findings or ["暂无明确发现。"],
-            evidence=evidence or [{"type": "limitation", "detail": "证据不足，结论保持不确定。"}],
-            score=round(max(0.0, min(10.0, float(score))), 1),
-            suggestions=suggestions or ["继续补充结构化证据后再细化判断。"],
+            findings=_text_list(findings, ["暂无明确发现。"]),
+            evidence=_evidence_list(evidence),
+            score=_bounded_score(score),
+            suggestions=_text_list(suggestions, ["继续补充结构化证据后再细化判断。"]),
             confidence=confidence,
             raw_output=raw_output or {},
             llm_used=llm_used,
@@ -104,3 +105,67 @@ def _llm_meta(result: AgentResult) -> dict[str, Any]:
     raw = result.raw_output if isinstance(result.raw_output, dict) else {}
     meta = raw.get("_llm_meta") if isinstance(raw.get("_llm_meta"), dict) else {}
     return meta
+
+
+def _bounded_score(value: Any) -> float:
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        score = 0.0
+    return round(max(0.0, min(10.0, score)), 1)
+
+
+def _text_list(value: Any, fallback: list[str]) -> list[str]:
+    if value is None:
+        return fallback
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else fallback
+    if isinstance(value, dict):
+        items = [f"{key}: {_short_json(item)}" for key, item in value.items()]
+        return items or fallback
+    if isinstance(value, (list, tuple, set)):
+        items = []
+        for item in value:
+            if item is None:
+                continue
+            if isinstance(item, str):
+                text = item.strip()
+            elif isinstance(item, dict):
+                text = _short_json(item)
+            else:
+                text = str(item).strip()
+            if text:
+                items.append(text)
+        return items or fallback
+    text = str(value).strip()
+    return [text] if text else fallback
+
+
+def _evidence_list(value: Any) -> list[dict[str, Any]]:
+    fallback = [{"type": "limitation", "detail": "证据不足，结论保持不确定。"}]
+    if value is None:
+        return fallback
+    if isinstance(value, dict):
+        if "type" in value or "source" in value:
+            return [value]
+        return [{"type": str(key), "value": item} for key, item in value.items()] or fallback
+    if isinstance(value, (list, tuple, set)):
+        items: list[dict[str, Any]] = []
+        for item in value:
+            if item is None:
+                continue
+            if isinstance(item, dict):
+                items.append(item)
+            else:
+                items.append({"type": "note", "value": item})
+        return items or fallback
+    return [{"type": "note", "value": value}]
+
+
+def _short_json(value: Any) -> str:
+    try:
+        text = json.dumps(value, ensure_ascii=False)
+    except TypeError:
+        text = str(value)
+    return text if len(text) <= 500 else f"{text[:497]}..."

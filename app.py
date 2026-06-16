@@ -289,7 +289,7 @@ def render_dashboard(result: dict) -> None:
 
         st.markdown("### 文件树结构")
         with st.container(border=True):
-            _scroll_text_block(file_tree.get("tree", ""), height=360)
+            _file_tree_browser(file_tree.get("tree", ""), height=400)
 
         st.markdown("### 目录分析")
         dir_df = pd.DataFrame(file_tree.get("directory_summary") or [])
@@ -857,11 +857,57 @@ def _scroll_metric(label: str, value: object) -> None:
     st.markdown(html, unsafe_allow_html=True)
 
 
-def _scroll_text_block(text: str, height: int = 320) -> None:
+def _file_tree_browser(text: str, height: int = 380) -> None:
+    rows = []
+    lines = [line for line in (text or "").splitlines() if line.strip()]
+    for index, line in enumerate(lines):
+        node = _parse_tree_line(line, is_root=index == 0)
+        kind_class = "tree-kind-more" if node["is_more"] else ("tree-kind-dir" if node["is_dir"] else "tree-kind-file")
+        row_class = "tree-row tree-root" if index == 0 else "tree-row"
+        if node["is_more"]:
+            row_class += " tree-more"
+        rows.append(
+            f'<div class="{row_class}" style="padding-left:{0.45 + node["depth"] * 1.05:.2f}rem;">'
+            f'<span class="tree-kind {kind_class}">{node["kind"]}</span>'
+            f'<span class="tree-name" title="{_html(node["title"])}">{_html(node["name"])}</span>'
+            "</div>"
+        )
+    if not rows:
+        rows.append('<div class="tree-empty">暂无文件树。</div>')
     st.markdown(
-        f'<pre class="tree-scroll" style="max-height:{height}px;">{_html(text or "暂无文件树。")}</pre>',
+        f'<div class="tree-browser" style="max-height:{height}px;">{"".join(rows)}</div>'
+        '<div class="tree-caption">展示深度 3 层，每个目录最多展示 18 项；已自动忽略 .git、venv、node_modules 等目录。</div>',
         unsafe_allow_html=True,
     )
+
+
+def _parse_tree_line(line: str, is_root: bool = False) -> dict:
+    raw = line.rstrip()
+    if is_root:
+        name = raw.rstrip("/") or raw
+        return {"name": name, "title": raw, "depth": 0, "is_dir": True, "is_more": False, "kind": "DIR"}
+
+    marker_pos = max(raw.rfind("|-- "), raw.rfind("`-- "))
+    if marker_pos >= 0:
+        prefix = raw[:marker_pos]
+        name = raw[marker_pos + 4 :].strip()
+        depth = (len(prefix) // 4) + 1
+    else:
+        name = raw.strip()
+        depth = max(1, (len(raw) - len(raw.lstrip())) // 4)
+
+    is_more = name.startswith("...")
+    is_dir = name.endswith("/") and not is_more
+    clean_name = name.rstrip("/") if is_dir else name
+    kind = "MORE" if is_more else ("DIR" if is_dir else "FILE")
+    return {
+        "name": clean_name,
+        "title": raw,
+        "depth": depth,
+        "is_dir": is_dir,
+        "is_more": is_more,
+        "kind": kind,
+    }
 
 
 def _risk_list(risks: list[dict], height: int = 330) -> None:
@@ -1007,19 +1053,61 @@ def _inject_css() -> None:
             scrollbar-width: thin;
             padding-bottom: 0.2rem;
         }
-        .tree-scroll {
-            margin: 0;
-            padding: 0.85rem;
+        .tree-browser {
             border-radius: 8px;
-            background: rgba(2, 6, 23, 0.72);
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            color: #dbeafe;
-            font-size: 0.82rem;
-            line-height: 1.45;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: rgba(2, 6, 23, 0.76);
             overflow-y: auto;
             overflow-x: hidden;
-            white-space: pre-wrap;
-            word-break: break-all;
+            padding: 0.38rem;
+            scrollbar-width: thin;
+        }
+        .tree-row {
+            display: grid;
+            grid-template-columns: 3.3rem minmax(0, 1fr);
+            align-items: center;
+            gap: 0.55rem;
+            min-height: 1.85rem;
+            border-radius: 7px;
+            color: #dbeafe;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+            font-size: 0.8rem;
+        }
+        .tree-row:hover { background: rgba(59, 130, 246, 0.12); }
+        .tree-root {
+            margin-bottom: 0.25rem;
+            background: rgba(20, 184, 166, 0.11);
+            color: #f8fafc;
+            font-weight: 800;
+        }
+        .tree-more { color: #94a3b8; font-style: italic; }
+        .tree-kind {
+            border-radius: 6px;
+            padding: 0.12rem 0.24rem;
+            text-align: center;
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0;
+            color: #0f172a;
+        }
+        .tree-kind-dir { background: #5eead4; }
+        .tree-kind-file { background: #93c5fd; }
+        .tree-kind-more { background: #cbd5e1; }
+        .tree-name {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .tree-caption {
+            margin-top: 0.45rem;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }
+        .tree-empty {
+            color: #94a3b8;
+            padding: 0.75rem;
         }
         .risk-scroll {
             border: 1px solid rgba(148, 163, 184, 0.22);
