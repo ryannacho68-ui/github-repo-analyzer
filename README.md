@@ -193,6 +193,8 @@ RAG 问答：
 python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 ```
 
+建议运行 `pytest tests` 或上面的命令；项目根目录的 `pytest.ini` 已将测试收集范围限制到 `tests/`，避免扫描 `data/analyzed_repos/` 中已分析仓库的第三方测试。
+
 当前测试包含：
 
 - GitHub URL 解析。
