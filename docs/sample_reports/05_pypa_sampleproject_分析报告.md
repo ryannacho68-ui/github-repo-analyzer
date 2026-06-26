@@ -89,7 +89,7 @@
 ## 2. 项目概览
 
 - 解决问题/用途：A sample project that exists for PyPUG's "Tutorial on Packaging and Distributing Projects"
-- 目标用户：学习者、课程演示者和新手开发者
+- 目标用户：学习者、示例项目使用者和新手开发者
 - 判断置信度：100/100
 - 证据：GitHub API description: A sample project that exists for PyPUG's "Tutorial on Packaging and Distributing Projects"；pyproject.toml: A sample Python project；README title: A sample Python project
 

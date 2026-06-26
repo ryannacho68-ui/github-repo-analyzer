@@ -188,4 +188,4 @@ RAG 模块不会把整个仓库直接发给 LLM，而是先从 README、配置�
 
 另一个体会是，评估和降级机制非常重要。GitHub API 可能限流，Ollama 可能未启动，LLM 输出可能不符合 JSON，Windows 文件权限也可能导致缓存删除失败。如果没有 fallback、日志和测试，系统很容易只在理想环境中可用。通过 Agent 日志、pytest、py_compile 和页面状态提示，项目的可运行性和可展示性都有明显提升。
 
-后续改进方向包括：接入真实漏洞库和安全工具，例如 OSV、pip-audit、npm audit、Bandit、Semgrep；增加 coverage 和 lint 结果；扩展 JavaScript、TypeScript、Java、Go 等语言的语法分析；为 LLM 输出加入严格 JSON Schema；使用 ChromaDB 替换当前轻量检索；增加历史报告管理和 Docker 部署文件。这样可以让系统从课程项目进一步演进为更完整的代码仓库分析工具。
+后续改进方向包括：接入真实漏洞库和安全工具，例如 OSV、pip-audit、npm audit、Bandit、Semgrep；增加 coverage 和 lint 结果；扩展 JavaScript、TypeScript、Java、Go 等语言的语法分析；为 LLM 输出加入严格 JSON Schema；使用 ChromaDB 替换当前轻量检索；增加历史报告管理和 Docker 部署文件。这样可以让系统从教学原型进一步演进为更完整的代码仓库分析工具。
