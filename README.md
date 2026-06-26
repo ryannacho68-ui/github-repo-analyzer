@@ -213,6 +213,8 @@ python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 - 技术报告：`docs/technical_report.md`
 - 技术说明与常见问题：`docs/technical_notes.md`
 - 产品介绍大纲：`docs/presentation_outline.md`
+- 五个真实仓库分析报告：`docs/sample_reports/`
+- Multi-Agent 样例日志：`docs/sample_agent_logs/`
 - AI 辅助开发记录：`docs/vibe_coding_prompt_log.md`
 - AI 辅助开发反思：`docs/vibe_coding_reflection.md`
 

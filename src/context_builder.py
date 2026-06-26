@@ -54,7 +54,7 @@ def build_repository_context(repo_info: dict[str, Any], github_api: dict[str, An
             path = current_path / filename
             rel_path = path.relative_to(repo_path).as_posix()
             lower_name = filename.lower()
-            if filename in DEPENDENCY_FILENAMES:
+            if lower_name in DEPENDENCY_FILENAMES:
                 dependency_files[rel_path] = _read_limited_text(path, 20_000)
             if _is_config_file(path):
                 config_files.append(rel_path)

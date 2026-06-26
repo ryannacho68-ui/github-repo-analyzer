@@ -41,3 +41,5 @@ outputs/agent_logs/*
 .DS_Store
 Thumbs.db
 *.log
+*.mp4
+docs/course_report.docx

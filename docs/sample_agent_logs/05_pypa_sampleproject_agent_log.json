@@ -1,0 +1,1920 @@
+[
+  {
+    "agent": "技术栈 Agent",
+    "agent_name": "技术栈 Agent",
+    "input": "tech_stack_detector.py + dependency files + import summary + file tree features",
+    "input_summary": "tech_stack_detector.py + dependency files + import summary + file tree features",
+    "tools_used": [
+      "tech_stack_detector.py",
+      "file_tree.py",
+      "Ollama generate_json"
+    ],
+    "llm_used": true,
+    "model": "qwen2.5-coder:7b",
+    "output_summary": "Python 技术栈，识别到 0 个主要框架信号。",
+    "evidence_count": 3,
+    "score": 8.5,
+    "output": {
+      "agent_name": "技术栈 Agent",
+      "summary": "Python 技术栈，识别到 0 个主要框架信号。",
+      "findings": [
+        "主要语言：Python",
+        "框架/核心库：不确定",
+        "依赖数量约 1 个，包管理工具：pip"
+      ],
+      "evidence": [
+        {
+          "type": "pyproject.toml",
+          "value": "Contains build and project metadata for a Python package."
+        },
+        {
+          "type": ".github/workflows/release.yml",
+          "value": "GitHub Actions workflow for releasing the package."
+        },
+        {
+          "type": ".github/workflows/test.yml",
+          "value": "GitHub Actions workflow for testing the package."
+        }
+      ],
+      "score": 8.5,
+      "suggestions": [
+        "在 README 中补充运行环境、关键依赖版本和技术栈选择理由。"
+      ],
+      "confidence": 90,
+      "raw_output": {
+        "main_language": "Python",
+        "main_languages": [
+          "Python"
+        ],
+        "languages": [
+          {
+            "language": "Python",
+            "files": 5,
+            "ratio": 100.0
+          }
+        ],
+        "frameworks": [],
+        "databases": [
+          "不确定"
+        ],
+        "orm": "不确定",
+        "frontend_stack": [],
+        "backend_stack": [
+          "setuptools",
+          "nox"
+        ],
+        "ml_or_nlp_libraries": [],
+        "testing_libraries": [
+          "unittest"
+        ],
+        "deployment_tools": [
+          "GitHub Actions"
+        ],
+        "dependencies": {
+          "python": [
+            "peppercorn"
+          ]
+        },
+        "key_dependencies": [
+          "peppercorn"
+        ],
+        "dependency_versions": {},
+        "package_manager": [
+          "pip"
+        ],
+        "tools": [
+          "GitHub Actions",
+          "pip",
+          "pyproject"
+        ],
+        "indicators": [
+          "pyproject.toml",
+          ".github/workflows"
+        ],
+        "evidence": {
+          "pyproject.toml": "Contains build and project metadata for a Python package.",
+          ".github/workflows/release.yml": "GitHub Actions workflow for releasing the package.",
+          ".github/workflows/test.yml": "GitHub Actions workflow for testing the package."
+        },
+        "score": 8.5,
+        "confidence": 90,
+        "suggestions": [],
+        "_llm_meta": {
+          "llm_used": true,
+          "model": "qwen2.5-coder:7b",
+          "base_url": "http://localhost:11434",
+          "prompt_length": 4785,
+          "prompt_tokens_estimate": 1196,
+          "status": "ok",
+          "error_message": "",
+          "attempts": 1,
+          "response_length": 691
+        }
+      },
+      "llm_used": true,
+      "tools_used": [
+        "tech_stack_detector.py",
+        "file_tree.py",
+        "Ollama generate_json"
+      ],
+      "elapsed_seconds": 8.236,
+      "status": "ok",
+      "error_message": ""
+    },
+    "elapsed_ms": 8236.0,
+    "elapsed_seconds": 8.236,
+    "token_estimate": 460,
+    "status": "ok",
+    "error_message": ""
+  },
+  {
+    "agent": "架构分析 Agent",
+    "agent_name": "架构分析 Agent",
+    "input": "file_tree.py + architecture_analyzer.py + entry files + directory roles",
+    "input_summary": "file_tree.py + architecture_analyzer.py + entry files + directory roles",
+    "tools_used": [
+      "file_tree.py",
+      "architecture_analyzer.py",
+      "Ollama generate_json"
+    ],
+    "llm_used": true,
+    "model": "qwen2.5-coder:7b",
+    "output_summary": "标准库式分层工程，置信度 6.4/10。",
+    "evidence_count": 4,
+    "score": 6.4,
+    "output": {
+      "agent_name": "架构分析 Agent",
+      "summary": "标准库式分层工程，置信度 6.4/10。",
+      "findings": [
+        "结构模式判断为 标准库式分层工程。",
+        "识别到 3 个主要模块/目录职责。",
+        "入口文件：未识别到明确入口。",
+        "架构说明：项目采用标准库式的分层工程模式，将核心源码放在 `src` 目录下，测试代码放在 `tests` 目录下，并使用 GitHub Actions 进行 CI/CD。"
+      ],
+      "evidence": [
+        {
+          "type": "entry_points",
+          "paths": []
+        },
+        {
+          "type": "directory_summary",
+          "items": [
+            {
+              "directory": ".",
+              "files": 5,
+              "size_kb": 11.19
+            },
+            {
+              "directory": ".github",
+              "files": 2,
+              "size_kb": 1.56
+            },
+            {
+              "directory": "tests",
+              "files": 2,
+              "size_kb": 0.52
+            },
+            {
+              "directory": "src",
+              "files": 3,
+              "size_kb": 0.16
+            }
+          ]
+        },
+        {
+          "type": "rationale",
+          "items": [
+            "项目结构包含 `src` 和 `tests` 目录，符合标准库式的分层工程模式。GitHub Actions 配置文件位于 `.github/workflows` 目录下，用于 CI/CD。"
+          ]
+        },
+        {
+          "type": "llm_meta",
+          "value": {
+            "llm_used": true,
+            "model": "qwen2.5-coder:7b",
+            "base_url": "http://localhost:11434",
+            "prompt_length": 4130,
+            "prompt_tokens_estimate": 1032,
+            "status": "ok",
+            "error_message": "",
+            "attempts": 1,
+            "response_length": 809
+          }
+        }
+      ],
+      "score": 6.4,
+      "suggestions": [
+        "添加一个入口点文件（如 `main.py`）以提高项目的可执行性。",
+        "编写详细的 CI/CD 流程说明文档，确保 GitHub Actions 配置的一致性和可维护性。"
+      ],
+      "confidence": "medium",
+      "raw_output": {
+        "pattern": "标准库式分层工程",
+        "architecture_summary": "项目采用标准库式的分层工程模式，将核心源码放在 `src` 目录下，测试代码放在 `tests` 目录下，并使用 GitHub Actions 进行 CI/CD。",
+        "confidence": 0.64,
+        "entry_points": [],
+        "modules": [
+          {
+            "name": ".github",
+            "role": "GitHub CI/CD 配置"
+          },
+          {
+            "name": "src",
+            "role": "核心源码目录"
+          },
+          {
+            "name": "tests",
+            "role": "测试目录"
+          }
+        ],
+        "rationale": [
+          "项目结构包含 `src` 和 `tests` 目录，符合标准库式的分层工程模式。GitHub Actions 配置文件位于 `.github/workflows` 目录下，用于 CI/CD。"
+        ],
+        "style_tags": [
+          "CI/CD",
+          "含测试"
+        ],
+        "design_risks": [
+          "缺少明确的入口点文件（如 `main.py`），可能会影响项目的可执行性。",
+          "GitHub Actions 配置文件较多，但未见详细的 CI/CD 流程说明，可能存在配置冗余或不一致的风险。"
+        ],
+        "suggestions": [
+          "添加一个入口点文件（如 `main.py`）以提高项目的可执行性。",
+          "编写详细的 CI/CD 流程说明文档，确保 GitHub Actions 配置的一致性和可维护性。"
+        ],
+        "rule_pattern": "标准库式分层工程",
+        "rule_confidence": 0.64,
+        "_llm_meta": {
+          "llm_used": true,
+          "model": "qwen2.5-coder:7b",
+          "base_url": "http://localhost:11434",
+          "prompt_length": 4130,
+          "prompt_tokens_estimate": 1032,
+          "status": "ok",
+          "error_message": "",
+          "attempts": 1,
+          "response_length": 809
+        }
+      },
+      "llm_used": true,
+      "tools_used": [
+        "file_tree.py",
+        "architecture_analyzer.py",
+        "Ollama generate_json"
+      ],
+      "elapsed_seconds": 13.534,
+      "status": "ok",
+      "error_message": ""
+    },
+    "elapsed_ms": 13534.0,
+    "elapsed_seconds": 13.534,
+    "token_estimate": 550,
+    "status": "ok",
+    "error_message": ""
+  },
+  {
+    "agent": "项目概览 Agent",
+    "agent_name": "项目概览 Agent",
+    "input": "README summary + GitHub metadata + file tree summary + entrypoint candidates",
+    "input_summary": "README summary + GitHub metadata + file tree summary + entrypoint candidates",
+    "tools_used": [
+      "project_overview_analyzer.py",
+      "Ollama generate_json"
+    ],
+    "llm_used": true,
+    "model": "qwen2.5-coder:7b",
+    "output_summary": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\"",
+    "evidence_count": 6,
+    "score": 8.5,
+    "output": {
+      "agent_name": "项目概览 Agent",
+      "summary": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\"",
+      "findings": [
+        "项目类型：文档 / 示例仓库",
+        "项目用途：A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\"",
+        "目标用户：学习者、课程演示者和新手开发者"
+      ],
+      "evidence": [
+        {
+          "source": "GitHub API description",
+          "text": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\""
+        },
+        {
+          "source": "pyproject.toml",
+          "text": "A sample Python project"
+        },
+        {
+          "source": "README title",
+          "text": "A sample Python project"
+        },
+        {
+          "source": "README excerpt",
+          "text": "!Python Logo A sample project that exists as an aid to the [Python Packaging User Guide][packaging guide]'s [Tutorial on Packaging and Distributing Projects][distribution tutorial]."
+        },
+        {
+          "source": "README excerpt",
+          "text": "This project does not aim to cover best practices for Python project development as a whole."
+        },
+        {
+          "source": "README excerpt",
+          "text": "For example, it does not provide guidance or tool recommendations for version control, documentation, or testing."
+        }
+      ],
+      "score": 8.5,
+      "suggestions": [
+        "考虑添加更多关于最佳实践和工具推荐的内容，以提高项目的实用性。"
+      ],
+      "confidence": 100,
+      "raw_output": {
+        "name": "sampleproject",
+        "project_type": "文档 / 示例仓库",
+        "purpose": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\"",
+        "solved_problem": "提供一个示例项目，帮助学习者、课程演示者和新手开发者理解如何打包和分发 Python 项目。",
+        "target_users": "学习者、课程演示者和新手开发者",
+        "core_features": [
+          "包含 `pyproject.toml` 文件，用于定义项目的元数据。",
+          "提供示例代码和测试文件，帮助用户了解如何编写和测试 Python 项目。",
+          "包含 GitHub 工作流文件（如 `release.yml` 和 `test.yml`），用于自动化发布和测试流程。"
+        ],
+        "confidence": 100,
+        "score": 8.5,
+        "evidence": [
+          {
+            "source": "GitHub API description",
+            "text": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\""
+          },
+          {
+            "source": "pyproject.toml",
+            "text": "A sample Python project"
+          },
+          {
+            "source": "README title",
+            "text": "A sample Python project"
+          },
+          {
+            "source": "README excerpt",
+            "text": "!Python Logo A sample project that exists as an aid to the [Python Packaging User Guide][packaging guide]'s [Tutorial on Packaging and Distributing Projects][distribution tutorial]."
+          },
+          {
+            "source": "README excerpt",
+            "text": "This project does not aim to cover best practices for Python project development as a whole."
+          },
+          {
+            "source": "README excerpt",
+            "text": "For example, it does not provide guidance or tool recommendations for version control, documentation, or testing."
+          }
+        ],
+        "suggestions": [
+          "考虑添加更多关于最佳实践和工具推荐的内容，以提高项目的实用性。"
+        ],
+        "keywords": [
+          "example",
+          "sample",
+          "tutorial"
+        ],
+        "readme_title": "A sample Python project",
+        "readme_excerpt": "!Python Logo A sample project that exists as an aid to the [Python Packaging User Guide][packaging guide]'s [Tutorial on Packaging and Distributing Projects][distribution tutorial]. This project does not aim to cover best practices for Python project development as a whole. For example, it does not provide guidance or tool recommendations for version control, documentation, or testing. [The source for this project is available here][src].",
+        "limitations": [
+          "项目用途判断有 README 或元信息支撑。"
+        ],
+        "_llm_meta": {
+          "llm_used": true,
+          "model": "qwen2.5-coder:7b",
+          "base_url": "http://localhost:11434",
+          "prompt_length": 4803,
+          "prompt_tokens_estimate": 1200,
+          "status": "ok",
+          "error_message": "",
+          "attempts": 1,
+          "response_length": 1502
+        }
+      },
+      "llm_used": true,
+      "tools_used": [
+        "project_overview_analyzer.py",
+        "Ollama generate_json"
+      ],
+      "elapsed_seconds": 16.872,
+      "status": "ok",
+      "error_message": ""
+    },
+    "elapsed_ms": 16872.0,
+    "elapsed_seconds": 16.872,
+    "token_estimate": 868,
+    "status": "ok",
+    "error_message": ""
+  },
+  {
+    "agent": "代码质量 Agent",
+    "agent_name": "代码质量 Agent",
+    "input": "code_quality_analyzer.py + source samples + file scale metrics",
+    "input_summary": "code_quality_analyzer.py + source samples + file scale metrics",
+    "tools_used": [
+      "code_quality_analyzer.py",
+      "Python ast"
+    ],
+    "llm_used": false,
+    "model": null,
+    "output_summary": "代码质量评分 10.0/10。",
+    "evidence_count": 4,
+    "score": 10.0,
+    "output": {
+      "agent_name": "代码质量 Agent",
+      "summary": "代码质量评分 10.0/10。",
+      "findings": [
+        "Python 函数 6 个，类 1 个，平均函数长度 5.17 行。",
+        "长函数数量：0，超长文件数量：0。",
+        "测试检测：存在测试。"
+      ],
+      "evidence": [
+        {
+          "type": "python_ast_metrics",
+          "value": {
+            "files": 5,
+            "lines": 82,
+            "functions": 6,
+            "classes": 1,
+            "average_function_length": 5.17,
+            "long_functions": [],
+            "parse_errors": []
+          }
+        },
+        {
+          "type": "long_files",
+          "items": []
+        },
+        {
+          "type": "todo_markers",
+          "items": []
+        },
+        {
+          "type": "source_samples",
+          "items": [
+            {
+              "path": "noxfile.py",
+              "lines": 54,
+              "excerpt": "# this file is *not* meant to cover or endorse the use of nox or pytest or\n# testing in general,\n#\n#  It's meant to show the use of:\n#\n#  - check-manifest\n#     confirm items checked into vcs are in your sdist\n#  - readme_renderer (when using a reStructuredText README)\n#     confirms your long_description will render correctly on PyPI.\n#\n#  and also to help confirm pull requests to this project.\n\nimport os\n\nimport nox\n\nnox.options.sessions = [\"lint\"]\n\n# Define the minimal nox version required to run\nnox.options.needs_version = \">= 2024.3.2\"\n\n\n@nox.session\ndef lint(session):\n    session.install(\"flake8\")\n    session.run(\n        \"flake8\", \"--exclude\", \".nox,*.egg,build,data\",\n        \"--select\", \"E,W,F\", \".\"\n    )\n\n\n@nox.session\ndef build_and_check_dists(session):\n    session.install(\"build\", \"check-manifest >= 0.42\", \"twine\")\n    # If your project uses README.rst, uncomment the following:\n    # session.install(\"readme_renderer\")\n\n    session.run(\"check-manifest\", \"--ignore\", \"noxfile.py,tests/**\")\n    session.run(\"python\", \"-m\", \"build\")\n    session.run(\"python\", \"-m\", \"twine\", \"check\", \"dist/*\")\n\n\n@nox.session(python=[\"3.9\", \"3.10\", \"3.11\", \"3.12\", \"3.13\"])\ndef tests(session):\n   "
+            },
+            {
+              "path": "tests/__init__.py",
+              "lines": 3,
+              "excerpt": "# The inclusion of the tests module is not meant to offer best practices for\n# testing in general.\n"
+            },
+            {
+              "path": "tests/test_simple.py",
+              "lines": 18,
+              "excerpt": "# the inclusion of the tests module is not meant to offer best practices for\n# testing in general, but rather to support the `find_packages` example in\n# setup.py that excludes installing the \"tests\" package\n\nimport unittest\n\nfrom sample.simple import add_one\n\n\nclass TestSimple(unittest.TestCase):\n\n    def test_add_one(self):\n        self.assertEqual(add_one(5), 6)\n\n\nif __name__ == '__main__':\n    unittest.main()\n"
+            },
+            {
+              "path": "src/sample/__init__.py",
+              "lines": 4,
+              "excerpt": "def main():\n    \"\"\"Entry point for the application script\"\"\"\n    print(\"Call your main application code here\")\n"
+            },
+            {
+              "path": "src/sample/simple.py",
+              "lines": 3,
+              "excerpt": "def add_one(number):\n    return number + 1\n"
+            }
+          ]
+        }
+      ],
+      "score": 10.0,
+      "suggestions": [
+        "未发现明显代码质量扣分项。"
+      ],
+      "confidence": "high",
+      "raw_output": {
+        "score": 100,
+        "deductions": [
+          "未发现明显代码质量扣分项。"
+        ],
+        "python": {
+          "files": 5,
+          "lines": 82,
+          "functions": 6,
+          "classes": 1,
+          "average_function_length": 5.17,
+          "long_functions": [],
+          "parse_errors": []
+        },
+        "long_files": [],
+        "todo_markers": [],
+        "tests": {
+          "has_tests": true,
+          "test_dirs": [
+            "tests"
+          ],
+          "test_files": [
+            "tests/test_simple.py"
+          ]
+        },
+        "code_metrics": {
+          "files": 5,
+          "lines": 82,
+          "functions": 6,
+          "classes": 1,
+          "average_function_length": 5.17,
+          "long_functions": [],
+          "parse_errors": []
+        },
+        "long_functions": [],
+        "large_files": [],
+        "complexity_summary": {
+          "method": "基于 Python AST 统计函数长度，并结合 TODO 标记和长文件规则评估复杂度。",
+          "average_function_length": 5.17,
+          "long_function_count": 0
+        },
+        "naming_issues": [],
+        "todo_count": 0,
+        "exception_handling_summary": {
+          "method": "扫描解析错误和异常处理风险信号，包括 bare except 等模式。",
+          "parse_errors": []
+        }
+      },
+      "llm_used": false,
+      "tools_used": [
+        "code_quality_analyzer.py",
+        "Python ast"
+      ],
+      "elapsed_seconds": 0.01,
+      "status": "done",
+      "error_message": ""
+    },
+    "elapsed_ms": 10.0,
+    "elapsed_seconds": 0.01,
+    "token_estimate": 926,
+    "status": "done",
+    "error_message": ""
+  },
+  {
+    "agent": "文档 Agent",
+    "agent_name": "文档 Agent",
+    "input": "doc_checker.py + README API excerpt + docs/API/deploy doc signals",
+    "input_summary": "doc_checker.py + README API excerpt + docs/API/deploy doc signals",
+    "tools_used": [
+      "doc_checker.py",
+      "GitHub README API"
+    ],
+    "llm_used": false,
+    "model": null,
+    "output_summary": "文档完整性评分 6.8/10。",
+    "evidence_count": 4,
+    "score": 6.8,
+    "output": {
+      "agent_name": "文档 Agent",
+      "summary": "文档完整性评分 6.8/10。",
+      "findings": [
+        "README：存在，词数约 280。",
+        "安装/运行/示例检查：安装缺，运行有，示例有。",
+        "API 文档：未检测到明确 API 文档。"
+      ],
+      "evidence": [
+        {
+          "type": "readme_path",
+          "path": "README.md"
+        },
+        {
+          "type": "checks",
+          "value": {
+            "readme_exists": true,
+            "has_project_intro": true,
+            "has_installation": false,
+            "has_run_instructions": true,
+            "has_usage_example": true,
+            "has_license": false,
+            "has_dependency_file": true,
+            "has_gitignore": true
+          }
+        },
+        {
+          "type": "api_documentation",
+          "value": {
+            "has_api_docs": false,
+            "files": [],
+            "readme_mentions_api": false,
+            "github_readme_available": true
+          }
+        },
+        {
+          "type": "docs_dir",
+          "exists": false
+        }
+      ],
+      "score": 6.8,
+      "suggestions": [
+        "增加安装依赖步骤，例如 pip install -r requirements.txt。",
+        "增加 LICENSE，明确项目的使用和分发许可。",
+        "如果项目提供接口，建议补充 API.md、OpenAPI/Swagger 或 README 接口示例。"
+      ],
+      "confidence": "medium",
+      "raw_output": {
+        "score": 75,
+        "checks": {
+          "readme_exists": true,
+          "has_project_intro": true,
+          "has_installation": false,
+          "has_run_instructions": true,
+          "has_usage_example": true,
+          "has_license": false,
+          "has_dependency_file": true,
+          "has_gitignore": true
+        },
+        "readme_path": "README.md",
+        "readme_word_count": 280,
+        "suggestions": [
+          "增加安装依赖步骤，例如 pip install -r requirements.txt。",
+          "增加 LICENSE，明确项目的使用和分发许可。"
+        ],
+        "api_documentation": {
+          "has_api_docs": false,
+          "files": [],
+          "readme_mentions_api": false,
+          "github_readme_available": true
+        }
+      },
+      "llm_used": false,
+      "tools_used": [
+        "doc_checker.py",
+        "GitHub README API"
+      ],
+      "elapsed_seconds": 0.002,
+      "status": "done",
+      "error_message": ""
+    },
+    "elapsed_ms": 2.0,
+    "elapsed_seconds": 0.002,
+    "token_estimate": 366,
+    "status": "done",
+    "error_message": ""
+  },
+  {
+    "agent": "测试部署 Agent",
+    "agent_name": "测试部署 Agent",
+    "input": "test_detector.py + deploy_detector.py + CI/Docker/env evidence",
+    "input_summary": "test_detector.py + deploy_detector.py + CI/Docker/env evidence",
+    "tools_used": [
+      "test_detector.py",
+      "deploy_detector.py"
+    ],
+    "llm_used": false,
+    "model": null,
+    "output_summary": "测试与部署成熟度 5.8/10。",
+    "evidence_count": 4,
+    "score": 5.8,
+    "output": {
+      "agent_name": "测试部署 Agent",
+      "summary": "测试与部署成熟度 5.8/10。",
+      "findings": [
+        "测试文件 1 个，测试框架：未识别。",
+        "Docker：无，Compose：无，CI：有。",
+        "环境变量示例：未检测到。"
+      ],
+      "evidence": [
+        {
+          "type": "test_files",
+          "items": [
+            "tests/test_simple.py"
+          ]
+        },
+        {
+          "type": "test_frameworks",
+          "items": []
+        },
+        {
+          "type": "deploy_files",
+          "items": [
+            ".github/workflows/release.yml",
+            ".github/workflows/test.yml"
+          ]
+        },
+        {
+          "type": "startup_scripts",
+          "items": {}
+        }
+      ],
+      "score": 5.8,
+      "suggestions": [
+        "未从依赖中识别到常见测试框架。",
+        "未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程。",
+        "未检测到 Dockerfile 或 docker-compose，部署环境可复现性较弱。",
+        "未检测到 .env.example，建议提供环境变量示例。",
+        "README 中部署说明不足。",
+        "未检测到 package.json scripts 等启动脚本。"
+      ],
+      "confidence": "medium",
+      "raw_output": {
+        "score": 5.8,
+        "tests": {
+          "score": 7.0,
+          "has_tests": true,
+          "test_dirs": [
+            "tests"
+          ],
+          "test_files": [
+            "tests/test_simple.py"
+          ],
+          "test_file_count": 1,
+          "source_file_count": 5,
+          "test_file_ratio": 20.0,
+          "frameworks": [],
+          "ci_test_commands": [],
+          "coverage_note": "未运行覆盖率工具，仅基于测试文件结构、测试框架和 CI 命令进行估计。",
+          "suggestions": [
+            "未从依赖中识别到常见测试框架。",
+            "未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程。"
+          ]
+        },
+        "deployment": {
+          "score": 4.5,
+          "dockerfile": false,
+          "docker_compose": false,
+          "github_actions": true,
+          "deploy_files": [
+            ".github/workflows/release.yml",
+            ".github/workflows/test.yml"
+          ],
+          "env_examples": [],
+          "startup_scripts": {},
+          "has_deploy_docs": false,
+          "suggestions": [
+            "未检测到 Dockerfile 或 docker-compose，部署环境可复现性较弱。",
+            "未检测到 .env.example，建议提供环境变量示例。",
+            "README 中部署说明不足。",
+            "未检测到 package.json scripts 等启动脚本。"
+          ]
+        }
+      },
+      "llm_used": false,
+      "tools_used": [
+        "test_detector.py",
+        "deploy_detector.py"
+      ],
+      "elapsed_seconds": 0.036,
+      "status": "done",
+      "error_message": ""
+    },
+    "elapsed_ms": 36.0,
+    "elapsed_seconds": 0.036,
+    "token_estimate": 390,
+    "status": "done",
+    "error_message": ""
+  },
+  {
+    "agent": "风险 Agent",
+    "agent_name": "风险 Agent",
+    "input": "dependency_checker.py + security_scanner.py + quality/doc/test gaps",
+    "input_summary": "dependency_checker.py + security_scanner.py + quality/doc/test gaps",
+    "tools_used": [
+      "dependency_checker.py",
+      "security_scanner.py"
+    ],
+    "llm_used": false,
+    "model": null,
+    "output_summary": "依赖健康与潜在风险评分 7.7/10。",
+    "evidence_count": 3,
+    "score": 7.7,
+    "output": {
+      "agent_name": "风险 Agent",
+      "summary": "依赖健康与潜在风险评分 7.7/10。",
+      "findings": [
+        "依赖数量 1，未固定版本约 1 个。",
+        "规则扫描发现高风险 0 项、中风险 2 项、低风险 0 项。",
+        "未接入漏洞数据库，当前仅基于依赖数量、版本固定情况和依赖文件规范性进行规则型健康度评估。"
+      ],
+      "evidence": [
+        {
+          "type": "dependency_health",
+          "value": {
+            "score": 8.5,
+            "dependency_count": 1,
+            "dependency_files": [
+              "pyproject.toml"
+            ],
+            "pinned_count": 0,
+            "unpinned_count": 1,
+            "duplicates": [],
+            "runtime_vs_dev_split": {
+              "has_runtime_group": true,
+              "has_dev_group": false,
+              "groups": [
+                "python"
+              ]
+            },
+            "limitations": "未接入漏洞数据库，当前仅基于依赖数量、版本固定情况和依赖文件规范性进行规则型健康度评估。",
+            "suggestions": [
+              "较多依赖未固定版本，生产环境建议固定关键依赖版本。"
+            ]
+          }
+        },
+        {
+          "type": "security_risks",
+          "items": [
+            {
+              "severity": "中",
+              "category": "敏感字符串",
+              "path": ".github/workflows/release.yml:16",
+              "message": "发现疑似 credential assignment，请确认是否为真实凭据。",
+              "evidence": "id-token: ***"
+            },
+            {
+              "severity": "中",
+              "category": "SQL 风险迹象",
+              "path": "noxfile.py:28",
+              "message": "发现疑似 SQL 字符串拼接，建议使用参数化查询。",
+              "evidence": "\"--select\", \"E,W,F\", \".\""
+            }
+          ]
+        },
+        {
+          "type": "rule_note",
+          "text": "未接入漏洞数据库和 SAST 引擎，当前为规则型风险扫描，不虚构具体 CVE。"
+        }
+      ],
+      "score": 7.7,
+      "suggestions": [
+        "较多依赖未固定版本，生产环境建议固定关键依赖版本。",
+        "发现疑似 credential assignment，请确认是否为真实凭据。",
+        "发现疑似 SQL 字符串拼接，建议使用参数化查询。"
+      ],
+      "confidence": "medium",
+      "raw_output": {
+        "dependency_health": {
+          "score": 8.5,
+          "dependency_count": 1,
+          "dependency_files": [
+            "pyproject.toml"
+          ],
+          "pinned_count": 0,
+          "unpinned_count": 1,
+          "duplicates": [],
+          "runtime_vs_dev_split": {
+            "has_runtime_group": true,
+            "has_dev_group": false,
+            "groups": [
+              "python"
+            ]
+          },
+          "limitations": "未接入漏洞数据库，当前仅基于依赖数量、版本固定情况和依赖文件规范性进行规则型健康度评估。",
+          "suggestions": [
+            "较多依赖未固定版本，生产环境建议固定关键依赖版本。"
+          ]
+        },
+        "risks": {
+          "score": 77,
+          "risks": [
+            {
+              "severity": "中",
+              "category": "敏感字符串",
+              "path": ".github/workflows/release.yml:16",
+              "message": "发现疑似 credential assignment，请确认是否为真实凭据。",
+              "evidence": "id-token: ***"
+            },
+            {
+              "severity": "中",
+              "category": "SQL 风险迹象",
+              "path": "noxfile.py:28",
+              "message": "发现疑似 SQL 字符串拼接，建议使用参数化查询。",
+              "evidence": "\"--select\", \"E,W,F\", \".\""
+            }
+          ],
+          "risk_counts": {
+            "高": 0,
+            "中": 2,
+            "低": 0
+          },
+          "summary": "规则扫描发现高风险 0 项、中风险 2 项、低风险 0 项。",
+          "rule_note": "未接入漏洞数据库和 SAST 引擎，当前为规则型风险扫描，不虚构具体 CVE。"
+        }
+      },
+      "llm_used": false,
+      "tools_used": [
+        "dependency_checker.py",
+        "security_scanner.py"
+      ],
+      "elapsed_seconds": 0.035,
+      "status": "done",
+      "error_message": ""
+    },
+    "elapsed_ms": 35.0,
+    "elapsed_seconds": 0.035,
+    "token_estimate": 545,
+    "status": "done",
+    "error_message": ""
+  },
+  {
+    "agent": "汇总 Agent",
+    "agent_name": "汇总 Agent",
+    "input": "All AgentResult JSON outputs + shared tool facts",
+    "input_summary": "All AgentResult JSON outputs + shared tool facts",
+    "tools_used": [
+      "AgentResult JSON aggregation",
+      "Ollama generate_json"
+    ],
+    "llm_used": true,
+    "model": "qwen2.5-coder:7b",
+    "output_summary": "已汇总 10 个维度，总体评分 6.5/10。",
+    "evidence_count": 8,
+    "score": 6.5,
+    "output": {
+      "agent_name": "汇总 Agent",
+      "summary": "已汇总 10 个维度，总体评分 6.5/10。",
+      "findings": [
+        "总体评分 6.5/10",
+        "主要优势：良好的代码质量和测试覆盖率, 明确的 GitHub Actions 工作流",
+        "主要问题：{\"severity\": \"中\", \"category\": \"敏感字符串\", \"path\": \".github/workflows/release.yml:16\", \"message\": \"发现疑似 credential assignment，请确认是否为真实凭据。\"}, {\"severity\": \"中\", \"category\": \"SQL 风险迹象\", \"path\": \"noxfile.py:28\", \"message\": \"发现疑似 SQL 字符串拼接，建议使用参数化查询。\"}"
+      ],
+      "evidence": [
+        {
+          "type": "技术栈识别",
+          "value": [
+            {
+              "type": "language",
+              "value": "Python"
+            },
+            {
+              "type": "ci_tool",
+              "value": "GitHub Actions"
+            },
+            {
+              "type": "testing_framework",
+              "value": "pytest"
+            }
+          ]
+        },
+        {
+          "type": "架构分析",
+          "value": [
+            {
+              "type": "file_count",
+              "value": 6
+            },
+            {
+              "type": "test_file_count",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "type": "代码规模",
+          "value": [
+            {
+              "type": "source_file_count",
+              "value": 5
+            },
+            {
+              "type": "test_file_count",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "type": "代码质量",
+          "value": [
+            {
+              "type": "testing_framework",
+              "value": "pytest"
+            },
+            {
+              "type": "ci_tool",
+              "value": "GitHub Actions"
+            }
+          ]
+        },
+        {
+          "type": "文档完整性",
+          "value": [
+            {
+              "type": "license_file",
+              "value": false
+            },
+            {
+              "type": "deployment_docs",
+              "value": false
+            }
+          ]
+        },
+        {
+          "type": "依赖健康度",
+          "value": [
+            {
+              "type": "dependency_count",
+              "value": 1
+            },
+            {
+              "type": "pinned_dependency_count",
+              "value": 0
+            },
+            {
+              "type": "unpinned_dependency_count",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "type": "测试覆盖",
+          "value": [
+            {
+              "type": "test_file_count",
+              "value": 1
+            },
+            {
+              "type": "ci_test_commands",
+              "value": false
+            }
+          ]
+        },
+        {
+          "type": "部署方式",
+          "value": [
+            {
+              "type": "dockerfile",
+              "value": false
+            },
+            {
+              "type": "docker_compose",
+              "value": false
+            },
+            {
+              "type": "github_actions",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "score": 6.5,
+      "suggestions": [
+        "增加安装依赖步骤，例如 pip install -r requirements.txt。",
+        "增加 LICENSE，明确项目的使用和分发许可。",
+        "如果项目提供接口，建议补充 API.md、OpenAPI/Swagger 或 README 接口示例。",
+        "未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程。",
+        "未检测到 Dockerfile 或 docker-compose，部署环境可复现性较弱。",
+        "未检测到 .env.example，建议提供环境变量示例。",
+        "README 中部署说明不足。"
+      ],
+      "confidence": "medium",
+      "raw_output": {
+        "final_summary": "该项目是一个简单的 Python 项目，包含基本的测试和部署流程。在代码质量、文档完整性以及依赖健康度方面表现良好，但在测试覆盖和部署方式上还有提升空间。",
+        "overall_score": 6.5,
+        "dimension_scores": {
+          "项目概览": 8.5,
+          "技术栈识别": 8.5,
+          "架构分析": 6.4,
+          "代码规模": 7.5,
+          "代码质量": 10.0,
+          "文档完整性": 6.8,
+          "依赖健康度": 8.5,
+          "测试覆盖": 7.0,
+          "部署方式": 4.5,
+          "潜在问题": 7.7
+        },
+        "strengths": [
+          "良好的代码质量和测试覆盖率",
+          "明确的 GitHub Actions 工作流"
+        ],
+        "weaknesses": [
+          "缺少安装依赖步骤和 LICENSE 文件",
+          "未检测到 Dockerfile 或 docker-compose 文件，部署环境可复现性较弱",
+          "未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程"
+        ],
+        "issues": [
+          "{\"severity\": \"中\", \"category\": \"敏感字符串\", \"path\": \".github/workflows/release.yml:16\", \"message\": \"发现疑似 credential assignment，请确认是否为真实凭据。\"}",
+          "{\"severity\": \"中\", \"category\": \"SQL 风险迹象\", \"path\": \"noxfile.py:28\", \"message\": \"发现疑似 SQL 字符串拼接，建议使用参数化查询。\"}"
+        ],
+        "suggestions": [
+          "在 README 中补充运行环境、关键依赖版本和技术栈选择理由。",
+          "添加一个入口点文件（如 `main.py`）以提高项目的可执行性。",
+          "编写详细的 CI/CD 流程说明文档，确保 GitHub Actions 配置的一致性和可维护性。",
+          "考虑添加更多关于最佳实践和工具推荐的内容，以提高项目的实用性。",
+          "未发现明显代码质量扣分项。",
+          "增加安装依赖步骤，例如 pip install -r requirements.txt。",
+          "增加 LICENSE，明确项目的使用和分发许可。",
+          "如果项目提供接口，建议补充 API.md、OpenAPI/Swagger 或 README 接口示例。",
+          "未从依赖中识别到常见测试框架。",
+          "未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程。",
+          "未检测到 Dockerfile 或 docker-compose，部署环境可复现性较弱。",
+          "较多依赖未固定版本，生产环境建议固定关键依赖版本。",
+          "发现疑似 credential assignment，请确认是否为真实凭据。",
+          "发现疑似 SQL 字符串拼接，建议使用参数化查询。"
+        ],
+        "improvement_suggestions": [
+          "增加安装依赖步骤，例如 pip install -r requirements.txt。",
+          "增加 LICENSE，明确项目的使用和分发许可。",
+          "如果项目提供接口，建议补充 API.md、OpenAPI/Swagger 或 README 接口示例。",
+          "未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程。",
+          "未检测到 Dockerfile 或 docker-compose，部署环境可复现性较弱。",
+          "未检测到 .env.example，建议提供环境变量示例。",
+          "README 中部署说明不足。"
+        ],
+        "evidence_summary": [
+          {
+            "type": "技术栈识别",
+            "value": [
+              {
+                "type": "language",
+                "value": "Python"
+              },
+              {
+                "type": "ci_tool",
+                "value": "GitHub Actions"
+              },
+              {
+                "type": "testing_framework",
+                "value": "pytest"
+              }
+            ]
+          },
+          {
+            "type": "架构分析",
+            "value": [
+              {
+                "type": "file_count",
+                "value": 6
+              },
+              {
+                "type": "test_file_count",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "type": "代码规模",
+            "value": [
+              {
+                "type": "source_file_count",
+                "value": 5
+              },
+              {
+                "type": "test_file_count",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "type": "代码质量",
+            "value": [
+              {
+                "type": "testing_framework",
+                "value": "pytest"
+              },
+              {
+                "type": "ci_tool",
+                "value": "GitHub Actions"
+              }
+            ]
+          },
+          {
+            "type": "文档完整性",
+            "value": [
+              {
+                "type": "license_file",
+                "value": false
+              },
+              {
+                "type": "deployment_docs",
+                "value": false
+              }
+            ]
+          },
+          {
+            "type": "依赖健康度",
+            "value": [
+              {
+                "type": "dependency_count",
+                "value": 1
+              },
+              {
+                "type": "pinned_dependency_count",
+                "value": 0
+              },
+              {
+                "type": "unpinned_dependency_count",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "type": "测试覆盖",
+            "value": [
+              {
+                "type": "test_file_count",
+                "value": 1
+              },
+              {
+                "type": "ci_test_commands",
+                "value": false
+              }
+            ]
+          },
+          {
+            "type": "部署方式",
+            "value": [
+              {
+                "type": "dockerfile",
+                "value": false
+              },
+              {
+                "type": "docker_compose",
+                "value": false
+              },
+              {
+                "type": "github_actions",
+                "value": true
+              }
+            ]
+          }
+        ],
+        "ten_dimensions": {
+          "项目概览": {
+            "agent_name": "项目概览 Agent",
+            "summary": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\"",
+            "findings": [
+              "项目类型：文档 / 示例仓库",
+              "项目用途：A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\"",
+              "目标用户：学习者、课程演示者和新手开发者"
+            ],
+            "evidence": [
+              {
+                "source": "GitHub API description",
+                "text": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\""
+              },
+              {
+                "source": "pyproject.toml",
+                "text": "A sample Python project"
+              },
+              {
+                "source": "README title",
+                "text": "A sample Python project"
+              },
+              {
+                "source": "README excerpt",
+                "text": "!Python Logo A sample project that exists as an aid to the [Python Packaging User Guide][packaging guide]'s [Tutorial on Packaging and Distributing Projects][distribution tutorial]."
+              },
+              {
+                "source": "README excerpt",
+                "text": "This project does not aim to cover best practices for Python project development as a whole."
+              },
+              {
+                "source": "README excerpt",
+                "text": "For example, it does not provide guidance or tool recommendations for version control, documentation, or testing."
+              }
+            ],
+            "score": 8.5,
+            "suggestions": [
+              "考虑添加更多关于最佳实践和工具推荐的内容，以提高项目的实用性。"
+            ],
+            "confidence": 100,
+            "raw_output": {
+              "name": "sampleproject",
+              "project_type": "文档 / 示例仓库",
+              "purpose": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\"",
+              "solved_problem": "提供一个示例项目，帮助学习者、课程演示者和新手开发者理解如何打包和分发 Python 项目。",
+              "target_users": "学习者、课程演示者和新手开发者",
+              "core_features": [
+                "包含 `pyproject.toml` 文件，用于定义项目的元数据。",
+                "提供示例代码和测试文件，帮助用户了解如何编写和测试 Python 项目。",
+                "包含 GitHub 工作流文件（如 `release.yml` 和 `test.yml`），用于自动化发布和测试流程。"
+              ],
+              "confidence": 100,
+              "score": 8.5,
+              "evidence": [
+                {
+                  "source": "GitHub API description",
+                  "text": "A sample project that exists for PyPUG's \"Tutorial on Packaging and Distributing Projects\""
+                },
+                {
+                  "source": "pyproject.toml",
+                  "text": "A sample Python project"
+                },
+                {
+                  "source": "README title",
+                  "text": "A sample Python project"
+                },
+                {
+                  "source": "README excerpt",
+                  "text": "!Python Logo A sample project that exists as an aid to the [Python Packaging User Guide][packaging guide]'s [Tutorial on Packaging and Distributing Projects][distribution tutorial]."
+                },
+                {
+                  "source": "README excerpt",
+                  "text": "This project does not aim to cover best practices for Python project development as a whole."
+                },
+                {
+                  "source": "README excerpt",
+                  "text": "For example, it does not provide guidance or tool recommendations for version control, documentation, or testing."
+                }
+              ],
+              "suggestions": [
+                "考虑添加更多关于最佳实践和工具推荐的内容，以提高项目的实用性。"
+              ],
+              "keywords": [
+                "example",
+                "sample",
+                "tutorial"
+              ],
+              "readme_title": "A sample Python project",
+              "readme_excerpt": "!Python Logo A sample project that exists as an aid to the [Python Packaging User Guide][packaging guide]'s [Tutorial on Packaging and Distributing Projects][distribution tutorial]. This project does not aim to cover best practices for Python project development as a whole. For example, it does not provide guidance or tool recommendations for version control, documentation, or testing. [The source for this project is available here][src].",
+              "limitations": [
+                "项目用途判断有 README 或元信息支撑。"
+              ],
+              "_llm_meta": {
+                "llm_used": true,
+                "model": "qwen2.5-coder:7b",
+                "base_url": "http://localhost:11434",
+                "prompt_length": 4803,
+                "prompt_tokens_estimate": 1200,
+                "status": "ok",
+                "error_message": "",
+                "attempts": 1,
+                "response_length": 1502
+              }
+            },
+            "llm_used": true,
+            "tools_used": [
+              "project_overview_analyzer.py",
+              "Ollama generate_json"
+            ],
+            "elapsed_seconds": 16.872,
+            "status": "ok",
+            "error_message": ""
+          },
+          "技术栈识别": {
+            "agent_name": "技术栈 Agent",
+            "summary": "Python 技术栈，识别到 0 个主要框架信号。",
+            "findings": [
+              "主要语言：Python",
+              "框架/核心库：不确定",
+              "依赖数量约 1 个，包管理工具：pip"
+            ],
+            "evidence": [
+              {
+                "type": "pyproject.toml",
+                "value": "Contains build and project metadata for a Python package."
+              },
+              {
+                "type": ".github/workflows/release.yml",
+                "value": "GitHub Actions workflow for releasing the package."
+              },
+              {
+                "type": ".github/workflows/test.yml",
+                "value": "GitHub Actions workflow for testing the package."
+              }
+            ],
+            "score": 8.5,
+            "suggestions": [
+              "在 README 中补充运行环境、关键依赖版本和技术栈选择理由。"
+            ],
+            "confidence": 90,
+            "raw_output": {
+              "main_language": "Python",
+              "main_languages": [
+                "Python"
+              ],
+              "languages": [
+                {
+                  "language": "Python",
+                  "files": 5,
+                  "ratio": 100.0
+                }
+              ],
+              "frameworks": [],
+              "databases": [
+                "不确定"
+              ],
+              "orm": "不确定",
+              "frontend_stack": [],
+              "backend_stack": [
+                "setuptools",
+                "nox"
+              ],
+              "ml_or_nlp_libraries": [],
+              "testing_libraries": [
+                "unittest"
+              ],
+              "deployment_tools": [
+                "GitHub Actions"
+              ],
+              "dependencies": {
+                "python": [
+                  "peppercorn"
+                ]
+              },
+              "key_dependencies": [
+                "peppercorn"
+              ],
+              "dependency_versions": {},
+              "package_manager": [
+                "pip"
+              ],
+              "tools": [
+                "GitHub Actions",
+                "pip",
+                "pyproject"
+              ],
+              "indicators": [
+                "pyproject.toml",
+                ".github/workflows"
+              ],
+              "evidence": {
+                "pyproject.toml": "Contains build and project metadata for a Python package.",
+                ".github/workflows/release.yml": "GitHub Actions workflow for releasing the package.",
+                ".github/workflows/test.yml": "GitHub Actions workflow for testing the package."
+              },
+              "score": 8.5,
+              "confidence": 90,
+              "suggestions": [],
+              "_llm_meta": {
+                "llm_used": true,
+                "model": "qwen2.5-coder:7b",
+                "base_url": "http://localhost:11434",
+                "prompt_length": 4785,
+                "prompt_tokens_estimate": 1196,
+                "status": "ok",
+                "error_message": "",
+                "attempts": 1,
+                "response_length": 691
+              }
+            },
+            "llm_used": true,
+            "tools_used": [
+              "tech_stack_detector.py",
+              "file_tree.py",
+              "Ollama generate_json"
+            ],
+            "elapsed_seconds": 8.236,
+            "status": "ok",
+            "error_message": ""
+          },
+          "架构分析": {
+            "agent_name": "架构分析 Agent",
+            "summary": "标准库式分层工程，置信度 6.4/10。",
+            "findings": [
+              "结构模式判断为 标准库式分层工程。",
+              "识别到 3 个主要模块/目录职责。",
+              "入口文件：未识别到明确入口。",
+              "架构说明：项目采用标准库式的分层工程模式，将核心源码放在 `src` 目录下，测试代码放在 `tests` 目录下，并使用 GitHub Actions 进行 CI/CD。"
+            ],
+            "evidence": [
+              {
+                "type": "entry_points",
+                "paths": []
+              },
+              {
+                "type": "directory_summary",
+                "items": [
+                  {
+                    "directory": ".",
+                    "files": 5,
+                    "size_kb": 11.19
+                  },
+                  {
+                    "directory": ".github",
+                    "files": 2,
+                    "size_kb": 1.56
+                  },
+                  {
+                    "directory": "tests",
+                    "files": 2,
+                    "size_kb": 0.52
+                  },
+                  {
+                    "directory": "src",
+                    "files": 3,
+                    "size_kb": 0.16
+                  }
+                ]
+              },
+              {
+                "type": "rationale",
+                "items": [
+                  "项目结构包含 `src` 和 `tests` 目录，符合标准库式的分层工程模式。GitHub Actions 配置文件位于 `.github/workflows` 目录下，用于 CI/CD。"
+                ]
+              },
+              {
+                "type": "llm_meta",
+                "value": {
+                  "llm_used": true,
+                  "model": "qwen2.5-coder:7b",
+                  "base_url": "http://localhost:11434",
+                  "prompt_length": 4130,
+                  "prompt_tokens_estimate": 1032,
+                  "status": "ok",
+                  "error_message": "",
+                  "attempts": 1,
+                  "response_length": 809
+                }
+              }
+            ],
+            "score": 6.4,
+            "suggestions": [
+              "添加一个入口点文件（如 `main.py`）以提高项目的可执行性。",
+              "编写详细的 CI/CD 流程说明文档，确保 GitHub Actions 配置的一致性和可维护性。"
+            ],
+            "confidence": "medium",
+            "raw_output": {
+              "pattern": "标准库式分层工程",
+              "architecture_summary": "项目采用标准库式的分层工程模式，将核心源码放在 `src` 目录下，测试代码放在 `tests` 目录下，并使用 GitHub Actions 进行 CI/CD。",
+              "confidence": 0.64,
+              "entry_points": [],
+              "modules": [
+                {
+                  "name": ".github",
+                  "role": "GitHub CI/CD 配置"
+                },
+                {
+                  "name": "src",
+                  "role": "核心源码目录"
+                },
+                {
+                  "name": "tests",
+                  "role": "测试目录"
+                }
+              ],
+              "rationale": [
+                "项目结构包含 `src` 和 `tests` 目录，符合标准库式的分层工程模式。GitHub Actions 配置文件位于 `.github/workflows` 目录下，用于 CI/CD。"
+              ],
+              "style_tags": [
+                "CI/CD",
+                "含测试"
+              ],
+              "design_risks": [
+                "缺少明确的入口点文件（如 `main.py`），可能会影响项目的可执行性。",
+                "GitHub Actions 配置文件较多，但未见详细的 CI/CD 流程说明，可能存在配置冗余或不一致的风险。"
+              ],
+              "suggestions": [
+                "添加一个入口点文件（如 `main.py`）以提高项目的可执行性。",
+                "编写详细的 CI/CD 流程说明文档，确保 GitHub Actions 配置的一致性和可维护性。"
+              ],
+              "rule_pattern": "标准库式分层工程",
+              "rule_confidence": 0.64,
+              "_llm_meta": {
+                "llm_used": true,
+                "model": "qwen2.5-coder:7b",
+                "base_url": "http://localhost:11434",
+                "prompt_length": 4130,
+                "prompt_tokens_estimate": 1032,
+                "status": "ok",
+                "error_message": "",
+                "attempts": 1,
+                "response_length": 809
+              }
+            },
+            "llm_used": true,
+            "tools_used": [
+              "file_tree.py",
+              "architecture_analyzer.py",
+              "Ollama generate_json"
+            ],
+            "elapsed_seconds": 13.534,
+            "status": "ok",
+            "error_message": ""
+          },
+          "代码规模": {
+            "total_files": 12,
+            "total_dirs": 5,
+            "total_code_lines": 82,
+            "language_line_counts": {
+              "Python": 82
+            },
+            "directory_summary": [
+              {
+                "directory": ".",
+                "files": 5,
+                "size_kb": 11.19
+              },
+              {
+                "directory": ".github",
+                "files": 2,
+                "size_kb": 1.56
+              },
+              {
+                "directory": "tests",
+                "files": 2,
+                "size_kb": 0.52
+              },
+              {
+                "directory": "src",
+                "files": 3,
+                "size_kb": 0.16
+              }
+            ],
+            "test_file_count": 1,
+            "config_file_hint": 7
+          },
+          "代码质量": {
+            "agent_name": "代码质量 Agent",
+            "summary": "代码质量评分 10.0/10。",
+            "findings": [
+              "Python 函数 6 个，类 1 个，平均函数长度 5.17 行。",
+              "长函数数量：0，超长文件数量：0。",
+              "测试检测：存在测试。"
+            ],
+            "evidence": [
+              {
+                "type": "python_ast_metrics",
+                "value": {
+                  "files": 5,
+                  "lines": 82,
+                  "functions": 6,
+                  "classes": 1,
+                  "average_function_length": 5.17,
+                  "long_functions": [],
+                  "parse_errors": []
+                }
+              },
+              {
+                "type": "long_files",
+                "items": []
+              },
+              {
+                "type": "todo_markers",
+                "items": []
+              },
+              {
+                "type": "source_samples",
+                "items": [
+                  {
+                    "path": "noxfile.py",
+                    "lines": 54,
+                    "excerpt": "# this file is *not* meant to cover or endorse the use of nox or pytest or\n# testing in general,\n#\n#  It's meant to show the use of:\n#\n#  - check-manifest\n#     confirm items checked into vcs are in your sdist\n#  - readme_renderer (when using a reStructuredText README)\n#     confirms your long_description will render correctly on PyPI.\n#\n#  and also to help confirm pull requests to this project.\n\nimport os\n\nimport nox\n\nnox.options.sessions = [\"lint\"]\n\n# Define the minimal nox version required to run\nnox.options.needs_version = \">= 2024.3.2\"\n\n\n@nox.session\ndef lint(session):\n    session.install(\"flake8\")\n    session.run(\n        \"flake8\", \"--exclude\", \".nox,*.egg,build,data\",\n        \"--select\", \"E,W,F\", \".\"\n    )\n\n\n@nox.session\ndef build_and_check_dists(session):\n    session.install(\"build\", \"check-manifest >= 0.42\", \"twine\")\n    # If your project uses README.rst, uncomment the following:\n    # session.install(\"readme_renderer\")\n\n    session.run(\"check-manifest\", \"--ignore\", \"noxfile.py,tests/**\")\n    session.run(\"python\", \"-m\", \"build\")\n    session.run(\"python\", \"-m\", \"twine\", \"check\", \"dist/*\")\n\n\n@nox.session(python=[\"3.9\", \"3.10\", \"3.11\", \"3.12\", \"3.13\"])\ndef tests(session):\n   "
+                  },
+                  {
+                    "path": "tests/__init__.py",
+                    "lines": 3,
+                    "excerpt": "# The inclusion of the tests module is not meant to offer best practices for\n# testing in general.\n"
+                  },
+                  {
+                    "path": "tests/test_simple.py",
+                    "lines": 18,
+                    "excerpt": "# the inclusion of the tests module is not meant to offer best practices for\n# testing in general, but rather to support the `find_packages` example in\n# setup.py that excludes installing the \"tests\" package\n\nimport unittest\n\nfrom sample.simple import add_one\n\n\nclass TestSimple(unittest.TestCase):\n\n    def test_add_one(self):\n        self.assertEqual(add_one(5), 6)\n\n\nif __name__ == '__main__':\n    unittest.main()\n"
+                  },
+                  {
+                    "path": "src/sample/__init__.py",
+                    "lines": 4,
+                    "excerpt": "def main():\n    \"\"\"Entry point for the application script\"\"\"\n    print(\"Call your main application code here\")\n"
+                  },
+                  {
+                    "path": "src/sample/simple.py",
+                    "lines": 3,
+                    "excerpt": "def add_one(number):\n    return number + 1\n"
+                  }
+                ]
+              }
+            ],
+            "score": 10.0,
+            "suggestions": [
+              "未发现明显代码质量扣分项。"
+            ],
+            "confidence": "high",
+            "raw_output": {
+              "score": 100,
+              "deductions": [
+                "未发现明显代码质量扣分项。"
+              ],
+              "python": {
+                "files": 5,
+                "lines": 82,
+                "functions": 6,
+                "classes": 1,
+                "average_function_length": 5.17,
+                "long_functions": [],
+                "parse_errors": []
+              },
+              "long_files": [],
+              "todo_markers": [],
+              "tests": {
+                "has_tests": true,
+                "test_dirs": [
+                  "tests"
+                ],
+                "test_files": [
+                  "tests/test_simple.py"
+                ]
+              },
+              "code_metrics": {
+                "files": 5,
+                "lines": 82,
+                "functions": 6,
+                "classes": 1,
+                "average_function_length": 5.17,
+                "long_functions": [],
+                "parse_errors": []
+              },
+              "long_functions": [],
+              "large_files": [],
+              "complexity_summary": {
+                "method": "基于 Python AST 统计函数长度，并结合 TODO 标记和长文件规则评估复杂度。",
+                "average_function_length": 5.17,
+                "long_function_count": 0
+              },
+              "naming_issues": [],
+              "todo_count": 0,
+              "exception_handling_summary": {
+                "method": "扫描解析错误和异常处理风险信号，包括 bare except 等模式。",
+                "parse_errors": []
+              }
+            },
+            "llm_used": false,
+            "tools_used": [
+              "code_quality_analyzer.py",
+              "Python ast"
+            ],
+            "elapsed_seconds": 0.01,
+            "status": "done",
+            "error_message": ""
+          },
+          "文档完整性": {
+            "agent_name": "文档 Agent",
+            "summary": "文档完整性评分 6.8/10。",
+            "findings": [
+              "README：存在，词数约 280。",
+              "安装/运行/示例检查：安装缺，运行有，示例有。",
+              "API 文档：未检测到明确 API 文档。"
+            ],
+            "evidence": [
+              {
+                "type": "readme_path",
+                "path": "README.md"
+              },
+              {
+                "type": "checks",
+                "value": {
+                  "readme_exists": true,
+                  "has_project_intro": true,
+                  "has_installation": false,
+                  "has_run_instructions": true,
+                  "has_usage_example": true,
+                  "has_license": false,
+                  "has_dependency_file": true,
+                  "has_gitignore": true
+                }
+              },
+              {
+                "type": "api_documentation",
+                "value": {
+                  "has_api_docs": false,
+                  "files": [],
+                  "readme_mentions_api": false,
+                  "github_readme_available": true
+                }
+              },
+              {
+                "type": "docs_dir",
+                "exists": false
+              }
+            ],
+            "score": 6.8,
+            "suggestions": [
+              "增加安装依赖步骤，例如 pip install -r requirements.txt。",
+              "增加 LICENSE，明确项目的使用和分发许可。",
+              "如果项目提供接口，建议补充 API.md、OpenAPI/Swagger 或 README 接口示例。"
+            ],
+            "confidence": "medium",
+            "raw_output": {
+              "score": 75,
+              "checks": {
+                "readme_exists": true,
+                "has_project_intro": true,
+                "has_installation": false,
+                "has_run_instructions": true,
+                "has_usage_example": true,
+                "has_license": false,
+                "has_dependency_file": true,
+                "has_gitignore": true
+              },
+              "readme_path": "README.md",
+              "readme_word_count": 280,
+              "suggestions": [
+                "增加安装依赖步骤，例如 pip install -r requirements.txt。",
+                "增加 LICENSE，明确项目的使用和分发许可。"
+              ],
+              "api_documentation": {
+                "has_api_docs": false,
+                "files": [],
+                "readme_mentions_api": false,
+                "github_readme_available": true
+              }
+            },
+            "llm_used": false,
+            "tools_used": [
+              "doc_checker.py",
+              "GitHub README API"
+            ],
+            "elapsed_seconds": 0.002,
+            "status": "done",
+            "error_message": ""
+          },
+          "依赖健康度": {
+            "score": 8.5,
+            "dependency_count": 1,
+            "dependency_files": [
+              "pyproject.toml"
+            ],
+            "pinned_count": 0,
+            "unpinned_count": 1,
+            "duplicates": [],
+            "runtime_vs_dev_split": {
+              "has_runtime_group": true,
+              "has_dev_group": false,
+              "groups": [
+                "python"
+              ]
+            },
+            "limitations": "未接入漏洞数据库，当前仅基于依赖数量、版本固定情况和依赖文件规范性进行规则型健康度评估。",
+            "suggestions": [
+              "较多依赖未固定版本，生产环境建议固定关键依赖版本。"
+            ]
+          },
+          "测试覆盖": {
+            "score": 7.0,
+            "has_tests": true,
+            "test_dirs": [
+              "tests"
+            ],
+            "test_files": [
+              "tests/test_simple.py"
+            ],
+            "test_file_count": 1,
+            "source_file_count": 5,
+            "test_file_ratio": 20.0,
+            "frameworks": [],
+            "ci_test_commands": [],
+            "coverage_note": "未运行覆盖率工具，仅基于测试文件结构、测试框架和 CI 命令进行估计。",
+            "suggestions": [
+              "未从依赖中识别到常见测试框架。",
+              "未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程。"
+            ]
+          },
+          "部署方式": {
+            "score": 4.5,
+            "dockerfile": false,
+            "docker_compose": false,
+            "github_actions": true,
+            "deploy_files": [
+              ".github/workflows/release.yml",
+              ".github/workflows/test.yml"
+            ],
+            "env_examples": [],
+            "startup_scripts": {},
+            "has_deploy_docs": false,
+            "suggestions": [
+              "未检测到 Dockerfile 或 docker-compose，部署环境可复现性较弱。",
+              "未检测到 .env.example，建议提供环境变量示例。",
+              "README 中部署说明不足。",
+              "未检测到 package.json scripts 等启动脚本。"
+            ]
+          },
+          "潜在问题": {
+            "score": 77,
+            "risks": [
+              {
+                "severity": "中",
+                "category": "敏感字符串",
+                "path": ".github/workflows/release.yml:16",
+                "message": "发现疑似 credential assignment，请确认是否为真实凭据。",
+                "evidence": "id-token: ***"
+              },
+              {
+                "severity": "中",
+                "category": "SQL 风险迹象",
+                "path": "noxfile.py:28",
+                "message": "发现疑似 SQL 字符串拼接，建议使用参数化查询。",
+                "evidence": "\"--select\", \"E,W,F\", \".\""
+              }
+            ],
+            "risk_counts": {
+              "高": 0,
+              "中": 2,
+              "低": 0
+            },
+            "summary": "规则扫描发现高风险 0 项、中风险 2 项、低风险 0 项。",
+            "rule_note": "未接入漏洞数据库和 SAST 引擎，当前为规则型风险扫描，不虚构具体 CVE。"
+          }
+        },
+        "markdown_report": "# 项目概览\n该项目是一个简单的 Python 项目，包含基本的测试和部署流程。\n\n# 技术栈识别\n- Python\n- GitHub Actions\n- pytest\n\n# 架构分析\n项目结构简单，主要由代码文件、测试文件和 GitHub Actions 工作流组成。\n\n# 代码规模\n项目包含 5 个源文件和 1 个测试文件。\n\n# 代码质量\n代码质量良好，使用了 pytest 进行单元测试，并且有明确的 GitHub Actions 工作流进行自动化测试。\n\n# 文档完整性\n文档完整性一般，缺少 LICENSE 文件和详细的部署说明。\n\n# 依赖健康度\n依赖健康度良好，但存在未固定版本的依赖。\n\n# 测试覆盖\n测试覆盖一般，包含 1 个测试文件，但未在 CI 配置中检测到测试命令。\n\n# 部署方式\n部署方式一般，缺少 Dockerfile 或 docker-compose 文件，部署环境可复现性较弱。\n\n# 潜在问题\n- 缺少安装依赖步骤和 LICENSE 文件\n- 未检测到 Dockerfile 或 docker-compose 文件，部署环境可复现性较弱\n- 未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程\n- 发现疑似 credential assignment，请确认是否为真实凭据。\n- 发现疑似 SQL 字符串拼接，建议使用参数化查询。\n\n# 总体评分\n6.5/10\n\n# 主要优点\n- 良好的代码质量和测试覆盖率\n- 明确的 GitHub Actions 工作流\n\n# 主要问题\n- 缺少安装依赖步骤和 LICENSE 文件\n- 未检测到 Dockerfile 或 docker-compose 文件，部署环境可复现性较弱\n- 未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程\n- 发现疑似 credential assignment，请确认是否为真实凭据。\n- 发现疑似 SQL 字符串拼接，建议使用参数化查询。\n\n# 改进建议\n- 增加安装依赖步骤，例如 pip install -r requirements.txt。\n- 增加 LICENSE，明确项目的使用和分发许可。\n- 如果项目提供接口，建议补充 API.md、OpenAPI/Swagger 或 README 接口示例。\n- 未在 CI 配置中检测到测试命令，建议将测试纳入自动化流程。\n- 未检测到 Dockerfile 或 docker-compose，部署环境可复现性较弱。\n- 未检测到 .env.example，建议提供环境变量示例。\n- README 中部署说明不足。\n\n# Agent 协作日志摘要\n各 Agent 分别对项目进行了全面的评估，并提供了详细的评分和改进建议。总体来看，项目在代码质量和测试覆盖方面表现良好，但在文档完整性、依赖健康度以及部署方式上还有提升空间。",
+        "_llm_meta": {
+          "llm_used": true,
+          "model": "qwen2.5-coder:7b",
+          "base_url": "http://localhost:11434",
+          "prompt_length": 22207,
+          "prompt_tokens_estimate": 5551,
+          "status": "ok",
+          "error_message": "",
+          "attempts": 1,
+          "response_length": 4057
+        }
+      },
+      "llm_used": true,
+      "tools_used": [
+        "AgentResult JSON aggregation",
+        "Ollama generate_json"
+      ],
+      "elapsed_seconds": 54.124,
+      "status": "ok",
+      "error_message": ""
+    },
+    "elapsed_ms": 54124.0,
+    "elapsed_seconds": 54.124,
+    "token_estimate": 5214,
+    "status": "ok",
+    "error_message": ""
+  }
+]
