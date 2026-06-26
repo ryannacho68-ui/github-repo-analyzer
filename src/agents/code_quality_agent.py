@@ -19,14 +19,14 @@ class CodeQualityAgent(BaseAgent):
         quality["long_functions"] = py.get("long_functions") or []
         quality["large_files"] = quality.get("long_files") or []
         quality["complexity_summary"] = {
-            "method": "????????????????????????AST ????? TODO ????????????",
+            "method": "基于 Python AST 统计函数长度，并结合 TODO 标记和长文件规则评估复杂度。",
             "average_function_length": py.get("average_function_length", 0),
             "long_function_count": len(py.get("long_functions") or []),
         }
         quality["naming_issues"] = []
         quality["todo_count"] = len(quality.get("todo_markers") or [])
         quality["exception_handling_summary"] = {
-            "method": "?????????????????????? bare except ??????",
+            "method": "扫描解析错误和异常处理风险信号，包括 bare except 等模式。",
             "parse_errors": py.get("parse_errors") or [],
         }
         score = round((quality.get("score", 0) or 0) / 10, 1)

@@ -26,7 +26,7 @@ def generate_report(
             "report": _template_report(compact_context),
             "mode": "template",
             "model": None,
-            "message": "??? LLM?????????",
+            "message": "LLM disabled, returning template report.",
         }
 
     client = OllamaClient(
@@ -42,14 +42,14 @@ def generate_report(
             "mode": "template",
             "model": None,
             "message": (
-                f"Ollama ?????????? {requested_model}?"
-                f"???????{', '.join(available_models)}?"
-                f"???????????????ollama pull {requested_model}"
+                f"Ollama 未检测到模型 {requested_model}。"
+                f"当前可用模型：{', '.join(available_models)}。"
+                f"请先运行：ollama pull {requested_model}"
             ),
         }
 
     report = client.generate_text(
-        system_prompt="???????????????????????????????",
+        system_prompt="你是一个代码仓库分析报告生成助手，只能基于结构化分析结果撰写报告。",
         user_prompt=_build_prompt(compact_context),
         fallback="",
     )
@@ -59,13 +59,13 @@ def generate_report(
             "report": report,
             "mode": "ollama",
             "model": requested_model,
-            "message": "??? Ollama ?? AI ???",
+            "message": "已通过 Ollama 生成 AI 报告。",
         }
     return {
         "report": _template_report(compact_context),
         "mode": "template",
         "model": None,
-        "message": f"Ollama ?????????????{meta.get('error_message', 'unknown error')}",
+        "message": f"Ollama 调用失败，已退化为模板报告：{meta.get('error_message', 'unknown error')}",
     }
 
 
@@ -104,7 +104,7 @@ def _build_prompt(context: dict[str, Any]) -> str:
 1. 只能依据这些结构化结果分析，不要假设你看过完整源码。
 2. 不要输出空泛套话，要结合指标、风险和扣分原因。
 3. 报告包含以下章节：项目概述、项目用途与目标用户、技术栈分析、架构分析、项目结构说明、代码规模、代码质量评价、文档完整性评价、安全与工程规范问题、Multi-Agent 协作摘要、新人上手建议、后续改进建议。
-4. 语气适合课程设计答辩展示，清晰、专业、可执行。
+4. 语气面向工程评审和团队协作，清晰、专业、可执行。
 
 结构化静态分析结果：
 ```json

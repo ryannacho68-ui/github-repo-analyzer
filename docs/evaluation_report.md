@@ -32,7 +32,7 @@ streamlit run app.py
 | `streamlit/streamlit-hello` | Streamlit 示例应用，Python 项目 | 高 | 成功识别 Python、Streamlit、pandas、NumPy |
 | `pypa/sampleproject` | Python 打包示例，使用 pyproject 与 GitHub Actions | 高 | 成功识别 pyproject 和 GitHub Actions |
 | `pallets/itsdangerous` | Python 库项目，使用 pytest/ruff/mypy/GitHub Actions | 中高 | 技术栈正确；文档评分偏低是因为 README 信息较少，文档集中在 docs/ |
-| `pallets/click` | Python CLI 库，工程化程度较高 | 中 | 技术栈和工具正确；质量评分被长文件/长函数拉低，适合答辩说明启发式评分局限 |
+| `pallets/click` | Python CLI 库，工程化程度较高 | 中 | 技术栈和工具正确；质量评分被长文件/长函数拉低，可用于说明启发式评分局限 |
 
 ## 10 个分析维度覆盖情况
 
@@ -51,7 +51,7 @@ streamlit run app.py
 
 ## Agent 协作效率
 
-当前 Multi-Agent 是确定性逻辑 Agent，不消耗真实 LLM token。系统仍会展示 token 估算，用于答辩说明如果替换成真实 LLM Agent 时的上下文规模。
+当前项目采用“规则 Agent + LLM Agent”的混合式 Multi-Agent 架构。部分 Agent 会真实调用 Ollama 本地模型，因此会产生实际的模型推理 Token，但不会产生云端 API 费用。日志中的 token_estimate 是根据文本长度计算的近似值，不等同于 Ollama 返回的精确 Token 数量，主要用于比较不同 Agent 的上下文规模和协作效率。
 
 | 指标 | 结果 |
 | --- | --- |
@@ -62,7 +62,7 @@ streamlit run app.py
 
 ## RAG 问答质量评估建议
 
-建议答辩前对任意一个仓库提 10 个问题，并人工评估回答是否准确：
+建议在版本发布前对任意一个仓库提 10 个问题，并人工评估回答是否准确：
 
 1. 这个项目怎么在本地跑起来？
 2. 入口文件在哪里？
@@ -83,6 +83,6 @@ streamlit run app.py
 | --- | --- | --- |
 | 超大仓库 | 克隆慢、文件多、RAG 检索耗时 | 忽略大目录，限制大文件读取，建议后续异步任务 |
 | 非主流语言 | AST 质量指标不足 | 仍输出结构、技术栈、文档、安全；后续增加语言解析器 |
-| 文档集中在 docs/ | README 评分可能偏低 | 已在答辩中说明启发式评分局限 |
+| 文档集中在 docs/ | README 评分可能偏低 | 在评估报告中说明启发式评分局限 |
 | 私有仓库 | 需要认证 | 当前默认公开仓库，不提交 token |
 | 多仓库 monorepo | 架构判断可能过粗 | 后续增加 workspace/package 级别分析 |

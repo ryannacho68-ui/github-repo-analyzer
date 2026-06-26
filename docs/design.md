@@ -7,7 +7,7 @@
 - 上下文长度不够，模型无法完整读取大型仓库。
 - 统计指标不可靠，例如文件数、代码行数、长函数数量、测试文件数量。
 - 容易产生幻觉，例如编造技术栈版本、测试覆盖率或安全漏洞。
-- 证据链不清晰，答辩时难以解释评分依据。
+- 证据链不清晰，后续评审和维护时难以解释评分依据。
 - 可能误读 `.env`、密钥、二进制文件或无关缓存文件。
 
 因此本项目采用分层方案：先由规则工具提取事实，再由 Agent 基于事实和 evidence 做判断。
@@ -97,7 +97,7 @@ LLM 只接收受控上下文：
 - `status`
 - `error_message`
 
-答辩时可以展示 Overview、Tech Stack、Architecture 和 Summary Agent 的日志，证明它们确实调用了 Ollama；也可以展示 Code Quality、Risk 和 Test Deploy Agent 的日志，说明它们保持规则分析和可解释评分。
+系统可以展示 Overview、Tech Stack、Architecture 和 Summary Agent 的日志，证明它们确实调用了 Ollama；也可以展示 Code Quality、Risk 和 Test Deploy Agent 的日志，说明它们保持规则分析和可解释评分。
 
 ## 降级机制
 
@@ -111,7 +111,7 @@ LLM 只接收受控上下文：
 | 仓库过大 | 忽略大目录，源码抽样，文件内容限长 |
 | 非 Python 仓库 | 仍做文件结构、技术栈、文档、测试部署和风险分析 |
 
-## 课程知识点对应
+## 技术能力映射
 
 - Multi-Agent：多个 Agent 按维度协作，日志可追踪。
 - Prompt Engineering：要求 LLM 返回严格 JSON，并限制只能基于 evidence。

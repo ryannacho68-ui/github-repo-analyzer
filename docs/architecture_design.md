@@ -53,7 +53,7 @@ flowchart TB
 
 ## Multi-Agent 设计
 
-本项目采用“逻辑 Agent”方式实现课程中的 Multi-Agent 思想。每个 Agent 接收不同维度的结构化输入，输出 JSON，而不是直接读取整个仓库。
+本项目采用“逻辑 Agent”方式组织 Multi-Agent 分析流程。每个 Agent 接收不同维度的结构化输入，输出 JSON，而不是直接读取整个仓库。
 
 | Agent | 输入 | 输出 |
 | --- | --- | --- |
@@ -65,7 +65,7 @@ flowchart TB
 
 项目用途分析先由规则模块给出基础判断。系统会优先使用 GitHub API description 和包元信息，其次使用 README 标题与开头段落，再结合 topics、框架和目录结构推断项目类型；启用 Ollama 时，Overview Agent 只基于这些受控证据补充语义解释。Dashboard 会展示置信度和证据来源，避免用户输入链接后仍不知道仓库是做什么的。
 
-Dashboard 会展示每个 Agent 的输入摘要、输出 JSON、耗时和 token 估算，方便答辩说明“协作过程”。
+Dashboard 会展示每个 Agent 的输入摘要、输出 JSON、耗时和 token 估算，方便追踪分析链路和定位问题。
 
 ## RAG 问答设计
 
@@ -88,7 +88,7 @@ RAG 问答模块不会把整个仓库提交给 LLM，而是：
 - 只能依据结构化静态分析结果。
 - 不要假设看过完整源码。
 - 必须结合评分、风险、扣分原因和 Agent 输出。
-- 输出适合课程设计答辩展示的中文 Markdown。
+- 输出适合工程评审和团队协作的中文 Markdown。
 
 RAG 问答 Prompt 的关键约束：
 

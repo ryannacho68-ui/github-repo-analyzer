@@ -1,6 +1,6 @@
 # GitHub 仓库智能分析器
 
-一个面向课程设计答辩的 Streamlit Web Dashboard。用户输入 GitHub 仓库 URL 后，系统会自动获取仓库信息、克隆或读取缓存仓库，构建 `RepositoryContext`，再通过“规则工具 + LLM Agent”的混合式多 Agent 架构，从项目概览、技术栈、架构、代码质量、文档、测试部署和风险等维度生成结构化报告。
+一个面向开发者的 Streamlit Web Dashboard。用户输入 GitHub 仓库 URL 后，系统会自动获取仓库信息、克隆或读取缓存仓库，构建 `RepositoryContext`，再通过“规则工具 + LLM Agent”的混合式多 Agent 架构，从项目概览、技术栈、架构、代码质量、文档、测试部署和风险等维度生成结构化报告。
 
 本项目不是把整个仓库直接丢给 LLM 总结。规则工具负责提取客观事实和指标，Agent 基于证据输出结构化 JSON，Ollama 只接收 README 摘要、文件结构摘要、依赖信息、Agent 结果等受控上下文。
 
@@ -151,7 +151,7 @@ streamlit run app.py
 
 不要把 token 写入代码、README、`.env` 或提交到 GitHub。
 
-## 演示流程
+## 使用流程
 
 单仓库分析：
 
@@ -205,11 +205,22 @@ python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 - 单仓库分析 smoke test。
 - 双仓库对比 smoke test。
 
-## 答辩亮点
+## 项目文档
 
-- 不是简单 LLM 总结，而是“静态规则工具先提取证据，LLM Agent 再做语义解释和报告生成”。
-- Overview、Tech Stack、Architecture 与 Summary Agent 确实调用 Ollama 分析受控结构化摘要，符合题目对 LLM 分析的要求。
+- 架构设计：`docs/architecture_design.md`
+- 混合式 Agent 设计：`docs/design.md`
+- 真实仓库评估：`docs/evaluation_report.md`
+- 技术报告：`docs/technical_report.md`
+- 技术说明与常见问题：`docs/technical_notes.md`
+- 产品介绍大纲：`docs/presentation_outline.md`
+- AI 辅助开发记录：`docs/vibe_coding_prompt_log.md`
+- AI 辅助开发反思：`docs/vibe_coding_reflection.md`
+
+## 工程特性
+
+- 静态规则工具先提取证据，LLM Agent 再做语义解释和报告生成，避免直接把仓库交给模型总结。
+- Overview、Tech Stack、Architecture 与 Summary Agent 可调用 Ollama 分析受控结构化摘要。
 - Code Quality、Risk、Test Deploy 继续使用规则分析，保证可解释性，不伪造漏洞或覆盖率。
 - 所有 Agent 输出结构化 JSON，并记录 evidence、tools_used、llm_used、elapsed_seconds 和 status。
-- Ollama 不可用时自动降级，课程演示不依赖外部服务稳定性。
-- 支持双仓库对比和 RAG 问答，展示 Multi-Agent、Prompt Engineering、RAG、结构化输出和工程实践。
+- Ollama 不可用时自动降级，核心分析和报告导出仍可使用。
+- 支持双仓库对比和 RAG 问答，覆盖 Multi-Agent、Prompt Engineering、RAG、结构化输出和工程实践。
