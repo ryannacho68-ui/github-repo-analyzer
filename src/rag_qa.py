@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -16,6 +18,17 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
 
 from .file_tree import IGNORED_DIRS
 from .llm_reporter import DEFAULT_ENDPOINT, DEFAULT_MODEL, list_available_models
+
+CHROMA_COLLECTION_PREFIX = "repo_rag"
+CHROMA_DB_DIR = Path(
+    os.environ.get(
+        "GITHUB_REPO_ANALYZER_CHROMA_DIR",
+        Path(__file__).resolve().parents[1] / "data" / "chroma_rag",
+    )
+)
+CHROMA_EMBEDDING_DIMENSIONS = 384
+CHROMA_MAX_CHUNKS = 1500
+CHROMA_BATCH_SIZE = 128
 
 
 TEXT_EXTENSIONS = {
@@ -129,6 +142,13 @@ def answer_repository_question(
 
 
 def retrieve_relevant_chunks(question: str, repo_path: Path, top_k: int = 6) -> list[dict[str, Any]]:
+    chroma_chunks = _retrieve_chromadb_chunks(question, repo_path, top_k)
+    if chroma_chunks:
+        return chroma_chunks
+    return _retrieve_keyword_chunks(question, repo_path, top_k)
+
+
+def _retrieve_keyword_chunks(question: str, repo_path: Path, top_k: int = 6) -> list[dict[str, Any]]:
     query_tokens = _tokenize(question)
     is_run_question = _is_run_question(question)
     if is_run_question:
@@ -153,9 +173,234 @@ def retrieve_relevant_chunks(question: str, repo_path: Path, top_k: int = 6) -> 
             if score <= 0:
                 continue
             chunk["score"] = score
+            chunk["retriever"] = "keyword"
             scored_chunks.append(chunk)
 
     return sorted(scored_chunks, key=lambda item: item["score"], reverse=True)[:top_k]
+
+
+def _retrieve_chromadb_chunks(question: str, repo_path: Path, top_k: int = 6) -> list[dict[str, Any]]:
+    if not _is_chromadb_enabled():
+        return []
+
+    query = (question or "").strip()
+    if not query:
+        return []
+
+    chromadb = _load_chromadb()
+    if chromadb is None:
+        return []
+
+    try:
+        repo_path = Path(repo_path)
+        chunks = _collect_rag_chunks(repo_path)
+        if not chunks:
+            return []
+
+        CHROMA_DB_DIR.mkdir(parents=True, exist_ok=True)
+        client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
+        collection_name = _chroma_collection_name(repo_path)
+        collection = _ensure_chroma_collection(client, collection_name, chunks)
+
+        result = collection.query(
+            query_embeddings=[_hash_embedding(query)],
+            n_results=min(top_k, len(chunks)),
+            include=["documents", "metadatas", "distances"],
+        )
+        return _chroma_query_to_chunks(result)
+    except Exception:
+        return []
+
+
+def _is_chromadb_enabled() -> bool:
+    flag = os.environ.get("GITHUB_REPO_ANALYZER_DISABLE_CHROMA", "")
+    return flag.strip().lower() not in {"1", "true", "yes", "on"}
+
+
+def _load_chromadb():
+    try:
+        import chromadb
+    except Exception:
+        return None
+    return chromadb
+
+
+def _ensure_chroma_collection(client: Any, collection_name: str, chunks: list[dict[str, Any]]) -> Any:
+    signature = _corpus_signature(chunks)
+    manifest = _read_chroma_manifest(collection_name)
+
+    try:
+        collection = client.get_or_create_collection(name=collection_name)
+        if (
+            manifest.get("signature") == signature
+            and manifest.get("chunk_count") == len(chunks)
+            and collection.count() == len(chunks)
+        ):
+            return collection
+        client.delete_collection(name=collection_name)
+    except Exception:
+        try:
+            client.delete_collection(name=collection_name)
+        except Exception:
+            pass
+
+    collection = client.create_collection(name=collection_name)
+    _index_chroma_chunks(collection, chunks)
+    _write_chroma_manifest(collection_name, {"signature": signature, "chunk_count": len(chunks)})
+    return collection
+
+
+def _index_chroma_chunks(collection: Any, chunks: list[dict[str, Any]]) -> None:
+    for start in range(0, len(chunks), CHROMA_BATCH_SIZE):
+        batch = chunks[start : start + CHROMA_BATCH_SIZE]
+        collection.add(
+            ids=[item["id"] for item in batch],
+            documents=[item["content"] for item in batch],
+            metadatas=[
+                {
+                    "path": item["path"],
+                    "start_line": int(item["start_line"]),
+                    "end_line": int(item["end_line"]),
+                }
+                for item in batch
+            ],
+            embeddings=[_hash_embedding(_chunk_embedding_text(item)) for item in batch],
+        )
+
+
+def _collect_rag_chunks(repo_path: Path, max_chunks: int = CHROMA_MAX_CHUNKS) -> list[dict[str, Any]]:
+    chunks: list[dict[str, Any]] = []
+    paths = sorted(_iter_text_files(repo_path), key=lambda item: item.relative_to(repo_path).as_posix().lower())
+    for path in paths:
+        rel_path = path.relative_to(repo_path).as_posix()
+        text = _read_text(path)
+        if not text:
+            continue
+        for chunk in _chunk_text(text, rel_path):
+            chunk["id"] = _chunk_id(chunk)
+            chunks.append(chunk)
+            if len(chunks) >= max_chunks:
+                return chunks
+    return chunks
+
+
+def _chroma_query_to_chunks(result: dict[str, Any]) -> list[dict[str, Any]]:
+    documents = _first_result_list(result.get("documents"))
+    metadatas = _first_result_list(result.get("metadatas"))
+    distances = _first_result_list(result.get("distances"))
+    chunks = []
+
+    for index, document in enumerate(documents):
+        metadata = metadatas[index] if index < len(metadatas) and metadatas[index] else {}
+        path = str(metadata.get("path") or "")
+        if not path:
+            continue
+        distance = distances[index] if index < len(distances) else None
+        chunks.append(
+            {
+                "path": path,
+                "start_line": _as_int(metadata.get("start_line"), 1),
+                "end_line": _as_int(metadata.get("end_line"), 1),
+                "content": document or "",
+                "score": _distance_to_score(distance),
+                "retriever": "chromadb",
+            }
+        )
+    return chunks
+
+
+def _first_result_list(value: Any) -> list[Any]:
+    if isinstance(value, list) and value:
+        first = value[0]
+        return first if isinstance(first, list) else value
+    return []
+
+
+def _distance_to_score(distance: Any) -> float:
+    try:
+        numeric = max(float(distance), 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+    return round(1.0 / (1.0 + numeric), 4)
+
+
+def _as_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _chroma_collection_name(repo_path: Path) -> str:
+    digest = hashlib.sha1(str(repo_path.resolve()).encode("utf-8", errors="ignore")).hexdigest()[:16]
+    return f"{CHROMA_COLLECTION_PREFIX}_{digest}"
+
+
+def _manifest_path(collection_name: str) -> Path:
+    return CHROMA_DB_DIR / f"{collection_name}.json"
+
+
+def _read_chroma_manifest(collection_name: str) -> dict[str, Any]:
+    path = _manifest_path(collection_name)
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _write_chroma_manifest(collection_name: str, manifest: dict[str, Any]) -> None:
+    try:
+        _manifest_path(collection_name).write_text(json.dumps(manifest), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _corpus_signature(chunks: list[dict[str, Any]]) -> str:
+    digest = hashlib.sha1()
+    for chunk in chunks:
+        digest.update(chunk["id"].encode("utf-8", errors="ignore"))
+        digest.update(str(len(chunk["content"])).encode("ascii"))
+        digest.update(hashlib.sha1(chunk["content"].encode("utf-8", errors="ignore")).digest())
+    return digest.hexdigest()
+
+
+def _chunk_id(chunk: dict[str, Any]) -> str:
+    raw = f"{chunk['path']}:{chunk['start_line']}:{chunk['end_line']}"
+    digest = hashlib.sha1(raw.encode("utf-8", errors="ignore")).hexdigest()
+    return f"chunk_{digest}"
+
+
+def _chunk_embedding_text(chunk: dict[str, Any]) -> str:
+    return f"{chunk['path']}\n{chunk['content']}"
+
+
+def _hash_embedding(text: str) -> list[float]:
+    vector = [0.0] * CHROMA_EMBEDDING_DIMENSIONS
+    terms = _embedding_terms(text)
+    if not terms:
+        return vector
+
+    for term in terms[:4000]:
+        digest = hashlib.blake2b(term.encode("utf-8", errors="ignore"), digest_size=8).digest()
+        bucket = int.from_bytes(digest[:4], "little") % CHROMA_EMBEDDING_DIMENSIONS
+        sign = 1.0 if digest[4] % 2 == 0 else -1.0
+        vector[bucket] += sign
+
+    norm = math.sqrt(sum(value * value for value in vector))
+    if not norm:
+        return vector
+    return [value / norm for value in vector]
+
+
+def _embedding_terms(text: str) -> list[str]:
+    terms: list[str] = []
+    for token in re.findall(r"[A-Za-z_][A-Za-z0-9_]{1,}|[\u4e00-\u9fff]{2,}", text.lower()):
+        terms.append(token)
+        if "_" in token:
+            terms.extend(part for part in token.split("_") if len(part) > 1)
+        if token.isascii() and len(token) > 5:
+            terms.extend(token[index : index + 4] for index in range(0, len(token) - 3))
+    return terms
 
 
 def _heuristic_answer(
@@ -573,7 +818,21 @@ def _dedupe_steps(steps: list[dict[str, str]]) -> list[dict[str, str]]:
 
 def _is_run_question(question: str) -> bool:
     lower = question.lower()
-    return any(word in lower for word in ["本地跑", "怎么运行", "run locally", "启动", "install", "安装", "运行", "start"])
+    return any(
+        word in lower
+        for word in [
+            "本地跑",
+            "怎么运行",
+            "run locally",
+            "how do i run",
+            "locally",
+            "启动",
+            "install",
+            "安装",
+            "运行",
+            "start",
+        ]
+    )
 
 
 def _is_overview_question(question: str) -> bool:

@@ -81,6 +81,7 @@ github-repo-analyzer/
 ├─ app.py
 ├─ README.md
 ├─ requirements.txt
+├─ requirements-chroma.txt
 ├─ .gitignore
 ├─ src/
 │  ├─ analysis_models.py
@@ -129,6 +130,14 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+如需启用 ChromaDB 向量检索，可额外安装：
+
+```bash
+pip install -r requirements-chroma.txt
+```
+
+未安装或运行异常时，RAG 问答会自动回退到原有轻量检索。
+
 启用 Ollama：
 
 ```bash
@@ -175,7 +184,7 @@ RAG 问答：
 1. 先完成一次单仓库分析。
 2. 打开“仓库代码问答”。
 3. 输入问题，例如“这个项目怎么本地运行？”或“数据库模型有哪些？”。
-4. 系统检索 README、配置和源码片段，启用 Ollama 时生成回答，并展示来源路径。
+4. 系统优先使用 ChromaDB 检索 README、配置和源码片段；如果 ChromaDB 不可用，会自动回退到原有轻量 RAG。启用 Ollama 时生成回答，并展示来源路径。
 
 ## 报告输出
 

@@ -24,6 +24,7 @@ build/
 
 data/analyzed_repos/*
 !data/analyzed_repos/.gitkeep
+data/chroma_rag/
 reports/*
 !reports/.gitkeep
 outputs/*

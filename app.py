@@ -456,14 +456,14 @@ def render_compare_workspace() -> None:
         col_a, col_b, refresh_col, llm_col, button_col = st.columns([3.0, 3.0, 1.0, 0.9, 1.2])
         with col_a:
             repo_a = st.text_input(
-                "?? A",
+                "仓库 A",
                 placeholder="https://github.com/pallets/flask",
                 label_visibility="collapsed",
                 key="compare_repo_a",
             )
         with col_b:
             repo_b = st.text_input(
-                "?? B",
+                "仓库 B",
                 placeholder="https://github.com/fastapi/fastapi",
                 label_visibility="collapsed",
                 key="compare_repo_b",
