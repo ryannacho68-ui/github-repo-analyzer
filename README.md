@@ -12,7 +12,7 @@
 - GitHub API：获取仓库元数据、README 摘要和远程文件树，API 限流时自动降级到本地 clone 分析。
 - 静态分析：文件树、文件类型、语言占比、依赖文件、代码行数、Python AST、TODO、长函数、长文件、文档完整性、部署文件和风险信号。
 - Dashboard 展示：指标卡、文件树、技术栈标签、质量评分雷达图、维度评分表、风险列表、Agent 日志和报告下载。
-- RAG 问答：基于 README、配置文件和源码片段回答仓库相关问题，并尽量给出证据路径。
+- 代码级 RAG 问答：优先使用 ChromaDB 检索 README、配置文件和源码函数/类 chunk，支持按文件路径、函数名定位代码，并辅助分析潜在代码问题。
 - 无 LLM 模式：Ollama 不可用或用户关闭 Ollama 时，系统仍能输出规则分析和模板报告。
 
 ## 混合式 Agent 架构
@@ -31,7 +31,7 @@ flowchart TB
     Agents --> Compare["Comparison Agent"]
     Summary --> Report["Markdown / JSON Report"]
     Compare --> Report
-    Context --> RAG["RAG QA"]
+    Context --> RAG["Code-level ChromaDB RAG QA"]
     Report --> UI
     RAG --> UI
 ```
@@ -83,6 +83,7 @@ github-repo-analyzer/
 ├─ requirements.txt
 ├─ requirements-chroma.txt
 ├─ .gitignore
+├─ pytest.ini
 ├─ src/
 │  ├─ analysis_models.py
 │  ├─ context_builder.py
@@ -112,13 +113,7 @@ github-repo-analyzer/
 │     ├─ risk_agent.py
 │     ├─ summary_agent.py
 │     └─ comparison_agent.py
-├─ data/analyzed_repos/
-├─ outputs/
-│  ├─ reports/
-│  ├─ json/
-│  └─ agent_logs/
-├─ tests/
-└─ docs/
+└─ tests/
 ```
 
 ## 安装与运行
@@ -136,7 +131,15 @@ streamlit run app.py
 pip install -r requirements-chroma.txt
 ```
 
-未安装或运行异常时，RAG 问答会自动回退到原有轻量检索。
+ChromaDB 未安装、被关闭或运行异常时，RAG 问答会自动回退到关键词检索和启发式规则。默认会使用轻量哈希向量保证离线可运行；如果本机安装了 Ollama embedding 模型，可以启用语义向量：
+
+```powershell
+ollama pull nomic-embed-text
+$env:GITHUB_REPO_ANALYZER_EMBEDDING_MODEL="nomic-embed-text"
+streamlit run app.py
+```
+
+启用后，源码 chunk 和用户问题会优先通过 Ollama embedding 转成向量后写入 ChromaDB；如果模型不可用，会自动退回轻量哈希向量。
 
 启用 Ollama：
 
@@ -183,8 +186,8 @@ RAG 问答：
 
 1. 先完成一次单仓库分析。
 2. 打开“仓库代码问答”。
-3. 输入问题，例如“这个项目怎么本地运行？”或“数据库模型有哪些？”。
-4. 系统优先使用 ChromaDB 检索 README、配置和源码片段；如果 ChromaDB 不可用，会自动回退到原有轻量 RAG。启用 Ollama 时生成回答，并展示来源路径。
+3. 输入问题，例如“这个项目怎么本地运行？”、“数据库模型有哪些？”、“`src/rag_qa.py` 里的 `_build_qa_prompt` 是做什么的？”或“检查 `src/runner.py` 的 `run_command` 是否有安全问题”。
+4. 系统会对源码做函数/类级 chunking，并识别问题中的文件路径和函数名；优先使用 ChromaDB 检索相关代码片段，如果 ChromaDB 不可用则回退到关键词检索和启发式规则。启用 Ollama 时生成回答，并展示来源路径、行号、chunk 类型和符号名。
 
 ## 报告输出
 
@@ -194,7 +197,7 @@ RAG 问答：
 - `outputs/json/`：结构化 JSON 报告。
 - `outputs/agent_logs/`：Agent 协作日志。
 
-这些运行产物默认不会提交到 Git，只保留 `.gitkeep`。
+这些运行产物会在运行时自动创建，并被 `.gitignore` 排除，不会提交到 Git。
 
 ## 测试
 
@@ -211,21 +214,9 @@ python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 - 代码质量测试目录识别。
 - 10 维度契约。
 - Comparison Agent 对比逻辑。
+- RAG 问答回退逻辑、文件/函数定位和代码审查模板。
 - 单仓库分析 smoke test。
 - 双仓库对比 smoke test。
-
-## 项目文档
-
-- 架构设计：`docs/architecture_design.md`
-- 混合式 Agent 设计：`docs/design.md`
-- 真实仓库评估：`docs/evaluation_report.md`
-- 技术报告：`docs/technical_report.md`
-- 技术说明与常见问题：`docs/technical_notes.md`
-- 产品介绍大纲：`docs/presentation_outline.md`
-- 五个真实仓库分析报告：`docs/sample_reports/`
-- Multi-Agent 样例日志：`docs/sample_agent_logs/`
-- AI 辅助开发记录：`docs/vibe_coding_prompt_log.md`
-- AI 辅助开发反思：`docs/vibe_coding_reflection.md`
 
 ## 工程特性
 
@@ -234,4 +225,5 @@ python -B -m pytest tests -q --basetemp .pytest_tmp -p no:cacheprovider
 - Code Quality、Risk、Test Deploy 继续使用规则分析，保证可解释性，不伪造漏洞或覆盖率。
 - 所有 Agent 输出结构化 JSON，并记录 evidence、tools_used、llm_used、elapsed_seconds 和 status。
 - Ollama 不可用时自动降级，核心分析和报告导出仍可使用。
+- ChromaDB 作为可选向量检索依赖，支持源码函数/类 chunk、路径/符号加权和可选 Ollama embedding；失败时自动回退到关键词 RAG 和启发式回答。
 - 支持双仓库对比和 RAG 问答，覆盖 Multi-Agent、Prompt Engineering、RAG、结构化输出和工程实践。

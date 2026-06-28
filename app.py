@@ -650,7 +650,7 @@ def render_qa_panel(result: dict) -> None:
     with st.form(f"qa_form_{repo['safe_name']}", clear_on_submit=False, enter_to_submit=True, border=False):
         question = st.text_input(
             "向仓库提问",
-            placeholder="例如：这个项目怎么在本地跑起来？数据库模型有哪些？",
+            placeholder="例如：这个项目怎么运行？src/rag_qa.py 的 _build_qa_prompt 做什么？这段代码有没有安全问题？",
             label_visibility="collapsed",
             key=question_key,
         )

@@ -67,6 +67,26 @@ RUN_KEYWORDS = {
     "开发",
 }
 
+CODE_REVIEW_KEYWORDS = {
+    "问题",
+    "风险",
+    "漏洞",
+    "bug",
+    "issue",
+    "problem",
+    "risk",
+    "security",
+    "vulnerability",
+    "unsafe",
+    "异常",
+    "报错",
+    "隐患",
+    "优化",
+    "改进",
+    "代码审查",
+    "review",
+}
+
 COMMAND_HINT_RE = re.compile(
     r"\b("
     r"pip install|python -m|python [\w./-]+\.py|streamlit run|flask run|uvicorn "
@@ -128,7 +148,7 @@ def answer_repository_question(
                         "answer": answer,
                         "sources": _source_rows(chunks),
                         "mode": "ollama-rag",
-                        "message": "已基于检索片段调用 Ollama 回答。",
+                        "message": _qa_message(chunks, "已基于检索片段调用 Ollama 回答。"),
                     }
             except Exception:
                 pass
@@ -137,23 +157,30 @@ def answer_repository_question(
         "answer": _template_qa_answer(question, chunks),
         "sources": _source_rows(chunks),
         "mode": "retrieval-template",
-        "message": "LLM 未启用或不可用，已返回基于检索片段的模板回答。",
+        "message": _qa_message(chunks, "LLM 未启用或不可用，已返回基于检索片段的模板回答。"),
     }
 
 
 def retrieve_relevant_chunks(question: str, repo_path: Path, top_k: int = 6) -> list[dict[str, Any]]:
-    chroma_chunks = _retrieve_chromadb_chunks(question, repo_path, top_k)
+    repo_path = Path(repo_path)
+    hints = _query_hints(question, repo_path)
+    chroma_chunks = _retrieve_chromadb_chunks(question, repo_path, top_k, hints)
     if chroma_chunks:
         return chroma_chunks
-    return _retrieve_keyword_chunks(question, repo_path, top_k)
+    return _retrieve_keyword_chunks(question, repo_path, top_k, hints)
 
 
-def _retrieve_keyword_chunks(question: str, repo_path: Path, top_k: int = 6) -> list[dict[str, Any]]:
+def _retrieve_keyword_chunks(
+    question: str,
+    repo_path: Path,
+    top_k: int = 6,
+    hints: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    hints = hints or _query_hints(question, repo_path)
     query_tokens = _tokenize(question)
-    is_run_question = _is_run_question(question)
-    if is_run_question:
+    if hints.get("is_run_question"):
         query_tokens |= RUN_KEYWORDS
-    if not query_tokens:
+    if not query_tokens and not hints.get("paths") and not hints.get("symbols"):
         return []
 
     scored_chunks = []
@@ -163,13 +190,7 @@ def _retrieve_keyword_chunks(question: str, repo_path: Path, top_k: int = 6) -> 
         if not text:
             continue
         for chunk in _chunk_text(text, rel_path):
-            chunk_tokens = _tokenize(chunk["content"] + " " + rel_path)
-            overlap = query_tokens & chunk_tokens
-            score = len(overlap) * 4 + sum(1 for token in query_tokens if token in rel_path.lower())
-            if is_run_question:
-                score += _run_chunk_bonus(rel_path, chunk["content"])
-            if any(token in rel_path.lower() for token in {"readme", "config", "model", "route", "database"}):
-                score += 1
+            score = _chunk_query_score(chunk, query_tokens, hints)
             if score <= 0:
                 continue
             chunk["score"] = score
@@ -179,7 +200,12 @@ def _retrieve_keyword_chunks(question: str, repo_path: Path, top_k: int = 6) -> 
     return sorted(scored_chunks, key=lambda item: item["score"], reverse=True)[:top_k]
 
 
-def _retrieve_chromadb_chunks(question: str, repo_path: Path, top_k: int = 6) -> list[dict[str, Any]]:
+def _retrieve_chromadb_chunks(
+    question: str,
+    repo_path: Path,
+    top_k: int = 6,
+    hints: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
     if not _is_chromadb_enabled():
         return []
 
@@ -193,21 +219,30 @@ def _retrieve_chromadb_chunks(question: str, repo_path: Path, top_k: int = 6) ->
 
     try:
         repo_path = Path(repo_path)
+        hints = hints or _query_hints(question, repo_path)
         chunks = _collect_rag_chunks(repo_path)
         if not chunks:
             return []
 
+        embedding_provider = _resolve_embedding_provider()
         CHROMA_DB_DIR.mkdir(parents=True, exist_ok=True)
         client = chromadb.PersistentClient(path=str(CHROMA_DB_DIR))
         collection_name = _chroma_collection_name(repo_path)
-        collection = _ensure_chroma_collection(client, collection_name, chunks)
+        collection = _ensure_chroma_collection(client, collection_name, chunks, embedding_provider)
 
         result = collection.query(
-            query_embeddings=[_hash_embedding(query)],
-            n_results=min(top_k, len(chunks)),
+            query_embeddings=[_embedding_vectors([_query_embedding_text(query, hints)], embedding_provider)[0]],
+            n_results=min(max(top_k * 4, top_k), len(chunks)),
             include=["documents", "metadatas", "distances"],
         )
-        return _chroma_query_to_chunks(result)
+        query_tokens = _tokenize(question)
+        if hints.get("is_run_question"):
+            query_tokens |= RUN_KEYWORDS
+        reranked = []
+        for chunk in _chroma_query_to_chunks(result):
+            chunk["score"] = round(float(chunk.get("score") or 0) + _chunk_query_score(chunk, query_tokens, hints), 4)
+            reranked.append(chunk)
+        return sorted(reranked, key=lambda item: item["score"], reverse=True)[:top_k]
     except Exception:
         return []
 
@@ -225,8 +260,13 @@ def _load_chromadb():
     return chromadb
 
 
-def _ensure_chroma_collection(client: Any, collection_name: str, chunks: list[dict[str, Any]]) -> Any:
-    signature = _corpus_signature(chunks)
+def _ensure_chroma_collection(
+    client: Any,
+    collection_name: str,
+    chunks: list[dict[str, Any]],
+    embedding_provider: dict[str, str],
+) -> Any:
+    signature = _corpus_signature(chunks, embedding_provider)
     manifest = _read_chroma_manifest(collection_name)
 
     try:
@@ -245,14 +285,15 @@ def _ensure_chroma_collection(client: Any, collection_name: str, chunks: list[di
             pass
 
     collection = client.create_collection(name=collection_name)
-    _index_chroma_chunks(collection, chunks)
+    _index_chroma_chunks(collection, chunks, embedding_provider)
     _write_chroma_manifest(collection_name, {"signature": signature, "chunk_count": len(chunks)})
     return collection
 
 
-def _index_chroma_chunks(collection: Any, chunks: list[dict[str, Any]]) -> None:
+def _index_chroma_chunks(collection: Any, chunks: list[dict[str, Any]], embedding_provider: dict[str, str]) -> None:
     for start in range(0, len(chunks), CHROMA_BATCH_SIZE):
         batch = chunks[start : start + CHROMA_BATCH_SIZE]
+        embedding_texts = [_chunk_embedding_text(item) for item in batch]
         collection.add(
             ids=[item["id"] for item in batch],
             documents=[item["content"] for item in batch],
@@ -261,10 +302,12 @@ def _index_chroma_chunks(collection: Any, chunks: list[dict[str, Any]]) -> None:
                     "path": item["path"],
                     "start_line": int(item["start_line"]),
                     "end_line": int(item["end_line"]),
+                    "chunk_type": item.get("chunk_type", "text"),
+                    "symbol": item.get("symbol", ""),
                 }
                 for item in batch
             ],
-            embeddings=[_hash_embedding(_chunk_embedding_text(item)) for item in batch],
+            embeddings=_embedding_vectors(embedding_texts, embedding_provider),
         )
 
 
@@ -304,6 +347,8 @@ def _chroma_query_to_chunks(result: dict[str, Any]) -> list[dict[str, Any]]:
                 "content": document or "",
                 "score": _distance_to_score(distance),
                 "retriever": "chromadb",
+                "chunk_type": str(metadata.get("chunk_type") or "text"),
+                "symbol": str(metadata.get("symbol") or ""),
             }
         )
     return chunks
@@ -355,8 +400,10 @@ def _write_chroma_manifest(collection_name: str, manifest: dict[str, Any]) -> No
         pass
 
 
-def _corpus_signature(chunks: list[dict[str, Any]]) -> str:
+def _corpus_signature(chunks: list[dict[str, Any]], embedding_provider: dict[str, str] | None = None) -> str:
     digest = hashlib.sha1()
+    provider = embedding_provider or {"kind": "hash", "model": ""}
+    digest.update(json.dumps(provider, sort_keys=True).encode("utf-8", errors="ignore"))
     for chunk in chunks:
         digest.update(chunk["id"].encode("utf-8", errors="ignore"))
         digest.update(str(len(chunk["content"])).encode("ascii"))
@@ -365,13 +412,98 @@ def _corpus_signature(chunks: list[dict[str, Any]]) -> str:
 
 
 def _chunk_id(chunk: dict[str, Any]) -> str:
-    raw = f"{chunk['path']}:{chunk['start_line']}:{chunk['end_line']}"
+    raw = f"{chunk['path']}:{chunk['start_line']}:{chunk['end_line']}:{chunk.get('chunk_type', '')}:{chunk.get('symbol', '')}"
     digest = hashlib.sha1(raw.encode("utf-8", errors="ignore")).hexdigest()
     return f"chunk_{digest}"
 
 
 def _chunk_embedding_text(chunk: dict[str, Any]) -> str:
-    return f"{chunk['path']}\n{chunk['content']}"
+    label = " ".join(
+        value
+        for value in [
+            chunk.get("path", ""),
+            chunk.get("chunk_type", ""),
+            chunk.get("symbol", ""),
+        ]
+        if value
+    )
+    return f"{label}\n{chunk.get('content', '')}"
+
+
+def _query_embedding_text(query: str, hints: dict[str, Any]) -> str:
+    extras = " ".join([*hints.get("paths", []), *hints.get("symbols", [])])
+    return f"{extras}\n{query}".strip()
+
+
+def _resolve_embedding_provider() -> dict[str, str]:
+    model = os.environ.get("GITHUB_REPO_ANALYZER_EMBEDDING_MODEL", "").strip()
+    if not model:
+        return {"kind": "hash", "model": ""}
+    if _ollama_embeddings(["embedding probe"], model):
+        return {"kind": "ollama", "model": model}
+    return {"kind": "hash", "model": ""}
+
+
+def _embedding_vectors(texts: list[str], provider: dict[str, str]) -> list[list[float]]:
+    if provider.get("kind") == "ollama" and provider.get("model"):
+        vectors = _ollama_embeddings(texts, provider["model"])
+        if not vectors or len(vectors) != len(texts):
+            raise RuntimeError("Ollama embedding failed")
+        dimensions = {len(vector) for vector in vectors}
+        if len(dimensions) != 1:
+            raise RuntimeError("Ollama returned inconsistent embedding dimensions")
+        return [_normalize_vector(vector) for vector in vectors]
+    return [_hash_embedding(text) for text in texts]
+
+
+def _ollama_embeddings(texts: list[str], model: str) -> list[list[float]] | None:
+    if not texts:
+        return []
+    timeout = _embedding_timeout()
+    endpoint = os.environ.get("GITHUB_REPO_ANALYZER_EMBEDDING_ENDPOINT", "").strip()
+    endpoints = [endpoint] if endpoint else [_ollama_endpoint("/api/embed"), _ollama_endpoint("/api/embeddings")]
+
+    for candidate in [item for item in endpoints if item]:
+        try:
+            if candidate.endswith("/api/embeddings"):
+                vectors = []
+                for text in texts:
+                    response = requests.post(candidate, json={"model": model, "prompt": text}, timeout=timeout)
+                    response.raise_for_status()
+                    embedding = response.json().get("embedding")
+                    if not isinstance(embedding, list):
+                        raise RuntimeError("missing embedding")
+                    vectors.append([float(value) for value in embedding])
+                return vectors
+
+            response = requests.post(candidate, json={"model": model, "input": texts}, timeout=timeout)
+            response.raise_for_status()
+            embeddings = response.json().get("embeddings")
+            if isinstance(embeddings, list) and len(embeddings) == len(texts):
+                return [[float(value) for value in vector] for vector in embeddings]
+        except Exception:
+            continue
+    return None
+
+
+def _ollama_endpoint(path: str) -> str:
+    if DEFAULT_ENDPOINT.endswith("/api/generate"):
+        return DEFAULT_ENDPOINT[: -len("/api/generate")] + path
+    return "http://localhost:11434" + path
+
+
+def _embedding_timeout() -> float:
+    try:
+        return max(float(os.environ.get("GITHUB_REPO_ANALYZER_EMBEDDING_TIMEOUT", "15")), 1.0)
+    except ValueError:
+        return 15.0
+
+
+def _normalize_vector(vector: list[float]) -> list[float]:
+    norm = math.sqrt(sum(value * value for value in vector))
+    if not norm:
+        return vector
+    return [value / norm for value in vector]
 
 
 def _hash_embedding(text: str) -> list[float]:
@@ -401,6 +533,133 @@ def _embedding_terms(text: str) -> list[str]:
         if token.isascii() and len(token) > 5:
             terms.extend(token[index : index + 4] for index in range(0, len(token) - 3))
     return terms
+
+
+def _query_hints(question: str, repo_path: Path) -> dict[str, Any]:
+    return {
+        "paths": _extract_path_hints(question, repo_path),
+        "symbols": _extract_symbol_hints(question),
+        "is_run_question": _is_run_question(question),
+        "is_code_review": _is_code_review_question(question),
+    }
+
+
+def _extract_path_hints(question: str, repo_path: Path) -> list[str]:
+    normalized_question = (question or "").replace("\\", "/").lower()
+    if not normalized_question:
+        return []
+
+    matches: list[str] = []
+    for path in _iter_text_files(repo_path):
+        rel_path = path.relative_to(repo_path).as_posix()
+        lower_path = rel_path.lower()
+        basename = path.name.lower()
+        if lower_path in normalized_question or (
+            "." in basename and len(basename) >= 5 and re.search(rf"(?<![\w./-]){re.escape(basename)}(?![\w./-])", normalized_question)
+        ):
+            matches.append(rel_path)
+
+    return sorted(set(matches), key=lambda item: (item.count("/"), len(item), item.lower()))
+
+
+def _extract_symbol_hints(question: str) -> list[str]:
+    symbols: list[str] = []
+    stopwords = {
+        "class",
+        "code",
+        "def",
+        "file",
+        "function",
+        "issue",
+        "problem",
+        "python",
+        "return",
+        "src",
+        "test",
+        "这个",
+        "哪些",
+        "怎么",
+    }
+
+    candidates: list[str] = []
+    candidates.extend(re.findall(r"`([A-Za-z_][A-Za-z0-9_.]*)`", question or ""))
+    candidates.extend(match.strip() for match in re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(", question or ""))
+    candidates.extend(re.findall(r"\b[A-Za-z_][A-Za-z0-9_]{2,}\b", question or ""))
+
+    for candidate in candidates:
+        name = candidate.split(".")[-1].strip()
+        if not name or name.lower() in stopwords:
+            continue
+        if "/" in name or "\\" in name or "." in name:
+            continue
+        if "_" not in name and name.islower() and len(name) < 5:
+            continue
+        if name not in symbols:
+            symbols.append(name)
+        if len(symbols) >= 12:
+            break
+    return symbols
+
+
+def _chunk_query_score(chunk: dict[str, Any], query_tokens: set[str], hints: dict[str, Any]) -> float:
+    rel_path = str(chunk.get("path") or "")
+    lower_path = rel_path.lower()
+    symbol = str(chunk.get("symbol") or "")
+    lower_symbol = symbol.lower()
+    chunk_type = str(chunk.get("chunk_type") or "text")
+    content = str(chunk.get("content") or "")
+    searchable = f"{content} {rel_path} {symbol} {chunk_type}"
+
+    chunk_tokens = _tokenize(searchable)
+    overlap = query_tokens & chunk_tokens
+    score = float(len(overlap) * 4)
+    score += sum(1 for token in query_tokens if token in lower_path)
+
+    path_hints = {str(item).lower() for item in hints.get("paths", [])}
+    if lower_path in path_hints:
+        score += 80
+    elif any(Path(path_hint).name.lower() == Path(lower_path).name.lower() for path_hint in path_hints):
+        score += 35
+
+    symbol_hints = {str(item).lower() for item in hints.get("symbols", [])}
+    for symbol_hint in symbol_hints:
+        if symbol_hint and symbol_hint == lower_symbol:
+            score += 70
+        elif symbol_hint and (symbol_hint in lower_symbol or symbol_hint in content.lower()):
+            score += 20
+
+    if hints.get("is_run_question"):
+        score += _run_chunk_bonus(rel_path, content)
+    if hints.get("is_code_review") and chunk_type in {"class", "function", "method", "code"}:
+        score += 10
+        score += min(len(_code_issue_hints(content)), 4) * 3
+    if any(token in lower_path for token in {"readme", "config", "model", "route", "database"}):
+        score += 1
+    return round(score, 4)
+
+
+def _is_code_review_question(question: str) -> bool:
+    lower = (question or "").lower()
+    return any(keyword in lower for keyword in CODE_REVIEW_KEYWORDS)
+
+
+def _code_issue_hints(content: str) -> list[str]:
+    hints = []
+    checks = [
+        (r"\bexcept\s*:", "存在 bare except，可能吞掉异常细节"),
+        (r"except\s+Exception\s*:", "捕获 Exception 范围较宽，需要确认是否会掩盖真实错误"),
+        (r"\beval\s*\(", "使用 eval，存在代码执行风险"),
+        (r"\bexec\s*\(", "使用 exec，存在代码执行风险"),
+        (r"shell\s*=\s*True", "命令执行启用 shell=True，需要确认输入是否可信"),
+        (r"SELECT\s+.*\+|execute\s*\([^)]*%", "疑似 SQL 字符串拼接，需要确认是否参数化"),
+        (r"password\s*=\s*['\"]|secret\s*=\s*['\"]|api[_-]?key\s*=\s*['\"]", "疑似硬编码敏感配置"),
+        (r"TODO|FIXME|XXX", "包含 TODO/FIXME，可能是未完成逻辑"),
+        (r"requests\.(get|post|put|delete)\([^)]*$", "请求调用可能缺少 timeout，需要结合上下文确认"),
+    ]
+    for pattern, message in checks:
+        if re.search(pattern, content, re.IGNORECASE | re.MULTILINE):
+            hints.append(message)
+    return hints
 
 
 def _heuristic_answer(
@@ -868,16 +1127,41 @@ def _run_chunk_bonus(rel_path: str, content: str) -> int:
 def _template_qa_answer(question: str, chunks: list[dict[str, Any]]) -> str:
     if not chunks:
         return "没有在仓库文本中检索到足够相关的片段，建议换一个更具体的问题。"
+    if _is_code_review_question(question):
+        return _template_code_review_answer(question, chunks)
     lines = [f"针对问题“{question}”，我检索到了这些相关片段。由于未使用 LLM，下面是基于片段的简要回答："]
     for chunk in chunks[:4]:
         preview = " ".join(chunk["content"].split())[:220]
-        lines.append(f"- {chunk['path']}:{chunk['start_line']}：{preview}")
+        label = _chunk_label(chunk)
+        lines.append(f"- {label}：{preview}")
+    if any((chunk.get("chunk_type") or "text") != "text" for chunk in chunks):
+        lines.append("")
+        lines.append("这些来源已经按代码文件、函数或类切分；启用 Ollama 后可以进一步生成具体代码解释。")
+    return "\n".join(lines)
+
+
+def _template_code_review_answer(question: str, chunks: list[dict[str, Any]]) -> str:
+    lines = [
+        f"针对问题“{question}”，我先定位到以下相关代码片段。",
+        "当前未使用 LLM，因此这里只给出基于规则的代码审查线索，最终问题仍建议结合运行和测试确认：",
+    ]
+    for index, chunk in enumerate(chunks[:5], start=1):
+        label = _chunk_label(chunk)
+        hints = _code_issue_hints(chunk.get("content", ""))
+        lines.append(f"{index}. {label}")
+        if hints:
+            for hint in hints[:4]:
+                lines.append(f"   - 关注点：{hint}")
+        else:
+            lines.append("   - 关注点：未触发明显规则风险，可进一步检查输入校验、异常处理、边界条件和测试覆盖。")
+    lines.append("")
+    lines.append("建议打开 Ollama 后再次提问，系统会把这些代码片段作为 context，让模型输出更完整的影响分析和修改建议。")
     return "\n".join(lines)
 
 
 def _build_qa_prompt(question: str, analysis: dict[str, Any], chunks: list[dict[str, Any]]) -> str:
     context = "\n\n".join(
-        f"[{item['path']}:{item['start_line']}-{item['end_line']}]\n{item['content']}"
+        f"[{_chunk_label(item)}]\n{item['content']}"
         for item in chunks
     )
     summary = {
@@ -885,8 +1169,19 @@ def _build_qa_prompt(question: str, analysis: dict[str, Any], chunks: list[dict[
         "tech_stack": analysis.get("tech_stack", {}),
         "architecture": analysis.get("architecture", {}),
     }
+    review_instruction = ""
+    if _is_code_review_question(question):
+        review_instruction = """
+如果用户在询问代码问题、bug、安全风险或优化建议，请按以下结构回答：
+1. 结论：先说明是否发现明确问题、疑似问题或仅能给出关注点。
+2. 证据：逐条引用文件、行号、函数或类名。
+3. 潜在影响：说明可能造成的错误、误报、性能或安全影响。
+4. 修改建议：给出可执行的改法，不能编造未出现在片段中的 API。
+5. 验证方式：建议补充的测试或手工确认步骤。
+""".strip()
     return f"""
 你是仓库代码问答助手。只能根据给定的仓库摘要和检索片段回答，不要编造未出现的文件或函数。
+检索片段可能来自 README、配置文件，也可能来自源码的函数、类或文件级 chunk。回答具体代码问题时必须引用文件和行号。
 
 仓库摘要：
 {summary}
@@ -896,8 +1191,26 @@ def _build_qa_prompt(question: str, analysis: dict[str, Any], chunks: list[dict[
 
 用户问题：{question}
 
+{review_instruction}
+
 请用中文回答，并在涉及具体信息时标注来源文件。
 """.strip()
+
+
+def _chunk_label(chunk: dict[str, Any]) -> str:
+    symbol = chunk.get("symbol")
+    chunk_type = chunk.get("chunk_type") or "text"
+    symbol_part = f" {chunk_type}:{symbol}" if symbol else f" {chunk_type}"
+    return f"{chunk['path']}:{chunk['start_line']}-{chunk['end_line']}{symbol_part}"
+
+
+def _qa_message(chunks: list[dict[str, Any]], base_message: str) -> str:
+    if not chunks:
+        return base_message
+    code_chunks = sum(1 for chunk in chunks if (chunk.get("chunk_type") or "text") in {"class", "function", "method", "code"})
+    if code_chunks:
+        return f"{base_message} 已命中 {code_chunks} 个代码级 chunk，可用于具体文件、函数或代码问题分析。"
+    return base_message
 
 
 def _iter_text_files(repo_path: Path):
@@ -910,18 +1223,164 @@ def _iter_text_files(repo_path: Path):
 
 
 def _chunk_text(text: str, rel_path: str, max_lines: int = 80) -> list[dict[str, Any]]:
+    suffix = Path(rel_path).suffix.lower()
+    if suffix == ".py":
+        return _chunk_python_code(text, rel_path, max_lines=max_lines)
+    if suffix in {".js", ".ts", ".jsx", ".tsx"}:
+        return _chunk_braced_code(text, rel_path, max_lines=max_lines)
+    return _line_chunks(text, rel_path, max_lines=max_lines, chunk_type="text")
+
+
+def _chunk_python_code(text: str, rel_path: str, max_lines: int = 80) -> list[dict[str, Any]]:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return _line_chunks(text, rel_path, max_lines=max_lines, chunk_type="code")
+
     lines = text.splitlines()
-    chunks = []
-    for start in range(0, len(lines), max_lines):
-        block = "\n".join(lines[start : start + max_lines]).strip()
+    chunks: list[dict[str, Any]] = []
+    covered_ranges: list[tuple[int, int]] = []
+
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef):
+            chunks.append(_node_chunk(lines, rel_path, node, "class", node.name))
+            covered_ranges.append((node.lineno, getattr(node, "end_lineno", node.lineno)))
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    chunks.append(_node_chunk(lines, rel_path, item, "method", f"{node.name}.{item.name}"))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            chunks.append(_node_chunk(lines, rel_path, node, "function", node.name))
+            covered_ranges.append((node.lineno, getattr(node, "end_lineno", node.lineno)))
+
+    chunks.extend(_uncovered_line_chunks(lines, rel_path, covered_ranges, max_lines=max_lines))
+    return chunks or _line_chunks(text, rel_path, max_lines=max_lines, chunk_type="code")
+
+
+def _node_chunk(lines: list[str], rel_path: str, node: ast.AST, chunk_type: str, symbol: str) -> dict[str, Any]:
+    start_line = max(getattr(node, "lineno", 1), 1)
+    end_line = max(getattr(node, "end_lineno", start_line), start_line)
+    block = "\n".join(lines[start_line - 1 : end_line]).strip()
+    return {
+        "path": rel_path,
+        "start_line": start_line,
+        "end_line": end_line,
+        "content": block[:5000],
+        "chunk_type": chunk_type,
+        "symbol": symbol,
+    }
+
+
+def _uncovered_line_chunks(
+    lines: list[str],
+    rel_path: str,
+    covered_ranges: list[tuple[int, int]],
+    max_lines: int = 80,
+) -> list[dict[str, Any]]:
+    if not lines:
+        return []
+
+    covered: set[int] = set()
+    for start_line, end_line in covered_ranges:
+        covered.update(range(start_line, end_line + 1))
+
+    chunks: list[dict[str, Any]] = []
+    current_start: int | None = None
+    current_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line_number in covered:
+            if current_start is not None:
+                chunks.extend(_range_line_chunks(current_lines, rel_path, current_start, max_lines=max_lines, chunk_type="code"))
+            current_start = None
+            current_lines = []
+            continue
+        if current_start is None:
+            current_start = line_number
+        current_lines.append(line)
+    if current_start is not None:
+        chunks.extend(_range_line_chunks(current_lines, rel_path, current_start, max_lines=max_lines, chunk_type="code"))
+    return chunks
+
+
+def _chunk_braced_code(text: str, rel_path: str, max_lines: int = 80) -> list[dict[str, Any]]:
+    lines = text.splitlines()
+    chunks: list[dict[str, Any]] = []
+    covered_ranges: list[tuple[int, int]] = []
+    pattern = re.compile(
+        r"\b(?:export\s+default\s+|export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)"
+        r"|\b(?:export\s+)?class\s+([A-Za-z_$][\w$]*)"
+        r"|\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>"
+    )
+
+    for match in pattern.finditer(text):
+        symbol = next(group for group in match.groups() if group)
+        start_line = text.count("\n", 0, match.start()) + 1
+        end_line = _find_braced_end_line(text, match.end())
+        if end_line <= start_line:
+            end_line = min(len(lines), start_line + max_lines - 1)
+        chunk_type = "class" if match.group(2) else "function"
+        block = "\n".join(lines[start_line - 1 : end_line]).strip()
         if not block:
             continue
         chunks.append(
             {
                 "path": rel_path,
-                "start_line": start + 1,
-                "end_line": min(len(lines), start + max_lines),
+                "start_line": start_line,
+                "end_line": end_line,
                 "content": block[:5000],
+                "chunk_type": chunk_type,
+                "symbol": symbol,
+            }
+        )
+        covered_ranges.append((start_line, end_line))
+
+    chunks.extend(_uncovered_line_chunks(lines, rel_path, covered_ranges, max_lines=max_lines))
+    return chunks or _line_chunks(text, rel_path, max_lines=max_lines, chunk_type="code")
+
+
+def _find_braced_end_line(text: str, search_from: int) -> int:
+    open_index = text.find("{", search_from)
+    if open_index < 0:
+        return text.count("\n", 0, search_from) + 1
+
+    depth = 0
+    for index in range(open_index, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text.count("\n", 0, index) + 1
+    return text.count("\n") + 1
+
+
+def _line_chunks(text: str, rel_path: str, max_lines: int = 80, chunk_type: str = "text") -> list[dict[str, Any]]:
+    lines = text.splitlines()
+    return _range_line_chunks(lines, rel_path, 1, max_lines=max_lines, chunk_type=chunk_type)
+
+
+def _range_line_chunks(
+    lines: list[str],
+    rel_path: str,
+    first_line_number: int,
+    max_lines: int = 80,
+    chunk_type: str = "text",
+) -> list[dict[str, Any]]:
+    chunks: list[dict[str, Any]] = []
+    for start in range(0, len(lines), max_lines):
+        block = "\n".join(lines[start : start + max_lines]).strip()
+        if not block:
+            continue
+        start_line = first_line_number + start
+        end_line = first_line_number + min(len(lines), start + max_lines) - 1
+        chunks.append(
+            {
+                "path": rel_path,
+                "start_line": start_line,
+                "end_line": end_line,
+                "content": block[:5000],
+                "chunk_type": chunk_type,
+                "symbol": "",
             }
         )
     return chunks
@@ -940,6 +1399,9 @@ def _source_rows(chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         {
             "path": item["path"],
             "line_range": f"{item['start_line']}-{item['end_line']}",
+            "chunk_type": item.get("chunk_type", "text"),
+            "symbol": item.get("symbol", ""),
+            "retriever": item.get("retriever", ""),
             "score": item.get("score", 0),
         }
         for item in chunks
