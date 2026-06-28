@@ -23,24 +23,14 @@ build/
 *.egg-info/
 
 data/analyzed_repos/*
-!data/analyzed_repos/.gitkeep
 data/chroma_rag/
 reports/*
-!reports/.gitkeep
 outputs/*
-!outputs/.gitkeep
-!outputs/reports/
-outputs/reports/*
-!outputs/reports/.gitkeep
-!outputs/json/
-outputs/json/*
-!outputs/json/.gitkeep
-!outputs/agent_logs/
-outputs/agent_logs/*
-!outputs/agent_logs/.gitkeep
 
 .DS_Store
 Thumbs.db
 *.log
 *.mp4
-docs/course_report.docx
+*.docx
+*.pptx
+docs/
